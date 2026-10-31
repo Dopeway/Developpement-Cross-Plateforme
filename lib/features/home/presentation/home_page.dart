@@ -13,6 +13,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   String _query = '';
   String? _trade;
+  bool _availableOnly = false;
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +41,9 @@ class _HomePageState extends State<HomePage> {
           artisan.name.toLowerCase().contains(query) ||
           artisan.trade.toLowerCase().contains(query) ||
           artisan.area.toLowerCase().contains(query);
-      return matchesQuery && (_trade == null || artisan.trade == _trade);
+      return matchesQuery &&
+          (_trade == null || artisan.trade == _trade) &&
+          (!_availableOnly || artisan.availableToday);
     }).toList();
     final trades = allArtisans.map((artisan) => artisan.trade).toSet().toList();
     return ListView(
@@ -84,6 +87,13 @@ class _HomePageState extends State<HomePage> {
                     setState(() => _trade = selected ? trade : null),
               ),
             ),
+            FilterChip(
+              avatar: const Icon(Icons.schedule_outlined),
+              label: const Text('Disponible aujourd’hui'),
+              selected: _availableOnly,
+              onSelected: (selected) =>
+                  setState(() => _availableOnly = selected),
+            ),
           ],
         ),
         const SizedBox(height: 28),
@@ -98,6 +108,7 @@ class _HomePageState extends State<HomePage> {
               onPressed: () => setState(() {
                 _query = '';
                 _trade = null;
+                _availableOnly = false;
               }),
               child: const Text('Voir tout'),
             ),

@@ -15,6 +15,15 @@ class UserRepository {
         return AppUser.fromJson(<String, Object?>{'id': doc.id, ...data});
       });
 
+  Stream<List<AppUser>> watchUsers() => _users.snapshots().map(
+    (snapshot) => snapshot.docs
+        .map(
+          (doc) =>
+              AppUser.fromJson(<String, Object?>{'id': doc.id, ...doc.data()}),
+        )
+        .toList(),
+  );
+
   Future<AppUser?> getUser(String id) async {
     final document = await _users.doc(id).get();
     final data = document.data();

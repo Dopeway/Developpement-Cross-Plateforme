@@ -1,3 +1,14 @@
+enum ArtisanVerificationStatus { pending, verified, refused, suspended }
+
+extension ArtisanVerificationStatusLabel on ArtisanVerificationStatus {
+  String get label => switch (this) {
+    ArtisanVerificationStatus.pending => 'En attente de validation',
+    ArtisanVerificationStatus.verified => 'Profil vérifié',
+    ArtisanVerificationStatus.refused => 'Validation refusée',
+    ArtisanVerificationStatus.suspended => 'Profil suspendu',
+  };
+}
+
 class Artisan {
   const Artisan({
     required this.id,
@@ -9,6 +20,8 @@ class Artisan {
     required this.startingPrice,
     required this.verified,
     required this.availableToday,
+    this.verificationStatus = ArtisanVerificationStatus.pending,
+    this.rejectionReason,
   });
   factory Artisan.fromJson(Map<String, Object?> json) => Artisan(
     id: json['id']! as String,
@@ -20,7 +33,20 @@ class Artisan {
     startingPrice: json['startingPrice']! as int,
     verified: json['verified']! as bool,
     availableToday: json['availableToday']! as bool,
+    verificationStatus: _statusFromJson(json),
+    rejectionReason: json['rejectionReason'] as String?,
   );
+
+  static ArtisanVerificationStatus _statusFromJson(Map<String, Object?> json) {
+    final status = json['verificationStatus'] as String?;
+    if (status != null) {
+      return ArtisanVerificationStatus.values.byName(status);
+    }
+    return json['verified']! as bool
+        ? ArtisanVerificationStatus.verified
+        : ArtisanVerificationStatus.pending;
+  }
+
   final String id;
   final String name;
   final String trade;
@@ -30,8 +56,10 @@ class Artisan {
   final int startingPrice;
   final bool verified;
   final bool availableToday;
+  final ArtisanVerificationStatus verificationStatus;
+  final String? rejectionReason;
 
-  Map<String, Object> toJson() => {
+  Map<String, Object?> toJson() => {
     'name': name,
     'trade': trade,
     'area': area,
@@ -40,5 +68,7 @@ class Artisan {
     'startingPrice': startingPrice,
     'verified': verified,
     'availableToday': availableToday,
+    'verificationStatus': verificationStatus.name,
+    'rejectionReason': rejectionReason,
   };
 }

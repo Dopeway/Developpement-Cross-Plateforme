@@ -71,11 +71,32 @@ class ArtisanRepository {
           startingPrice: startingPrice,
           verified: false,
           availableToday: true,
+          verificationStatus: ArtisanVerificationStatus.pending,
         ).toJson(),
       );
 
   Future<void> updateVerification({
     required String id,
-    required bool verified,
-  }) => _artisans.doc(id).update({'verified': verified});
+    required ArtisanVerificationStatus status,
+    String? rejectionReason,
+  }) => _artisans.doc(id).update({
+    'verified': status == ArtisanVerificationStatus.verified,
+    'verificationStatus': status.name,
+    'rejectionReason': rejectionReason,
+  });
+
+  Future<void> updateProfile({
+    required String id,
+    required String name,
+    required String trade,
+    required String area,
+    required int startingPrice,
+    required bool availableToday,
+  }) => _artisans.doc(id).update({
+    'name': name.trim(),
+    'trade': trade.trim(),
+    'area': area.trim(),
+    'startingPrice': startingPrice,
+    'availableToday': availableToday,
+  });
 }

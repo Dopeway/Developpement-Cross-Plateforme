@@ -56,6 +56,16 @@ class RequestRepository {
     required RequestStatus status,
   }) => _requests.doc(id).update({'status': status.name});
 
+  Future<InterventionRequest?> get(String id) async {
+    final document = await _requests.doc(id).get();
+    final data = document.data();
+    if (data == null) return null;
+    return InterventionRequest.fromJson(<String, Object?>{
+      'id': document.id,
+      ...data,
+    });
+  }
+
   Future<void> cancel(String id) =>
       updateStatus(id: id, status: RequestStatus.cancelled);
 }

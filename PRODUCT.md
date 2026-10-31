@@ -16,7 +16,7 @@ Les clients tunisiens recherchent rapidement un artisan fiable pour un dépannag
 
 ## Product Purpose
 
-QuickFix Tunisia met en relation clients et artisans. La première version sert de prototype front-end navigable des parcours essentiels, sans compte réel, réseau ni persistance.
+QuickFix Tunisia met en relation clients et artisans à domicile. La V1 avancée utilise Firebase Authentication et Cloud Firestore pour fournir des parcours séparés et sécurisés aux clients, artisans et administrateurs.
 
 ## Positioning
 
@@ -29,8 +29,10 @@ Usage mobile prioritaire, souvent dans une situation de besoin immédiat. Le cli
 ## Capabilities and Constraints
 
 - Parcours à préparer : recherche, fiche artisan, création et suivi de demande, avis ; espace artisan ; aperçu administratif.
-- Les services, artisans et demandes sont des données de démonstration locales.
-- Aucun appel HTTP, paiement, authentification, chat temps réel ni contrôle d’accès effectif dans cette étape.
+- Les comptes, profils, artisans, demandes et avis sont stockés dans Cloud Firestore.
+- Firebase Authentication gère les sessions par e-mail et mot de passe.
+- Aucun paiement, chat temps réel, justificatif documentaire ni upload photo dans cette V1.
+- Les transitions de demande et les droits de rôle sont contrôlés par l’application et les règles Firestore.
 - L’interface est en français, responsive et accessible.
 
 ## Brand Commitments
@@ -46,7 +48,8 @@ Le cahier des charges `Cahier_des_charges_QuickFix_Tunisia_v1_1.docx` est la sou
 - Aider à agir vite, sans masquer les informations utiles.
 - Rendre la confiance visible avant la prise de contact.
 - Expliquer l’avancement d’une intervention par un état simple et compréhensible.
-- Préparer les rôles futurs sans simuler de sécurité ou de données réelles.
+- Donner à chaque rôle une expérience orientée vers ses tâches réelles.
+- Ne jamais considérer l’interface comme une sécurité : les règles Firestore restent la source de contrôle.
 
 ## Accessibility & Inclusion
 

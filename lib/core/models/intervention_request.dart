@@ -16,6 +16,27 @@ extension RequestStatusLabel on RequestStatus {
     RequestStatus.refused => 'Refusée',
     RequestStatus.cancelled => 'Annulée',
   };
+
+  bool canTransitionTo(RequestStatus next) => switch (this) {
+    RequestStatus.pending =>
+      next == RequestStatus.accepted ||
+          next == RequestStatus.refused ||
+          next == RequestStatus.cancelled,
+    RequestStatus.accepted => next == RequestStatus.inProgress,
+    RequestStatus.inProgress => next == RequestStatus.completed,
+    RequestStatus.completed ||
+    RequestStatus.refused ||
+    RequestStatus.cancelled => false,
+  };
+
+  RequestStatus? get nextArtisanStatus => switch (this) {
+    RequestStatus.pending => RequestStatus.accepted,
+    RequestStatus.accepted => RequestStatus.inProgress,
+    RequestStatus.inProgress => RequestStatus.completed,
+    RequestStatus.completed ||
+    RequestStatus.refused ||
+    RequestStatus.cancelled => null,
+  };
 }
 
 class InterventionRequest {

@@ -15,6 +15,19 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
+    function requestHasStatus(status) {
+      return request.resource.data.status == status;
+    }
+
+    function validArtisanTransition() {
+      return (resource.data.status == 'pending'
+          && (requestHasStatus('accepted') || requestHasStatus('refused')))
+        || (resource.data.status == 'accepted'
+          && requestHasStatus('inProgress'))
+        || (resource.data.status == 'inProgress'
+          && requestHasStatus('completed'));
+    }
+
     match /users/{userId} {
       allow create: if isOwner(userId)
         && request.resource.data.role in ['client', 'artisan']
@@ -34,7 +47,8 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'artisan'
           && request.resource.data.keys().hasOnly([
             'name', 'trade', 'area', 'rating', 'reviewCount', 'startingPrice',
-            'verified', 'availableToday'
+            'verified', 'availableToday', 'verificationStatus',
+            'rejectionReason'
           ])
           && request.resource.data.name is string
           && request.resource.data.trade is string
@@ -44,27 +58,53 @@ service cloud.firestore {
           && request.resource.data.startingPrice is int
           && request.resource.data.startingPrice >= 0
           && request.resource.data.verified == false
+          && request.resource.data.verificationStatus == 'pending'
           && request.resource.data.availableToday == true);
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (isOwner(artisanId)
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'artisan'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'name', 'trade', 'area', 'startingPrice', 'availableToday'
+          ])
+          && request.resource.data.verified == resource.data.verified
+          && request.resource.data.verificationStatus == resource.data.verificationStatus);
+      allow delete: if isAdmin();
     }
 
     match /requests/{requestId} {
       allow create: if signedIn()
         && request.resource.data.clientId == request.auth.uid
         && request.resource.data.status == 'pending';
-      allow read: if signedIn()
-        && (resource.data.clientId == request.auth.uid
-          || resource.data.artisanId == request.auth.uid
-          || isAdmin());
+      allow read: if signedIn();
       allow update: if isAdmin()
         || (resource.data.artisanId == request.auth.uid
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+          && validArtisanTransition())
         || (resource.data.clientId == request.auth.uid
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
           && request.resource.data.status == 'cancelled');
       allow delete: if isAdmin()
         || (resource.data.clientId == request.auth.uid
           && resource.data.status == 'pending');
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if signedIn()
+        && (resource.data.clientId == request.auth.uid
+          || resource.data.artisanId == request.auth.uid
+          || isAdmin());
+      allow create: if signedIn()
+        && reviewId == request.resource.data.requestId
+        && request.resource.data.clientId == request.auth.uid
+        && get(/databases/$(database)/documents/requests/$(reviewId)).data.clientId == request.auth.uid
+        && get(/databases/$(database)/documents/requests/$(reviewId)).data.status == 'completed'
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && request.resource.data.keys().hasOnly([
+          'requestId', 'clientId', 'artisanId', 'rating', 'comment', 'createdAt'
+        ]);
+      allow update, delete: if isAdmin();
     }
   }
 }

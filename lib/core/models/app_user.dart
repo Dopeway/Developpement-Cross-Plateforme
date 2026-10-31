@@ -28,6 +28,9 @@ class AppUser {
   final String email;
   final UserRole role;
 
+  AppUser copyWith({String? name}) =>
+      AppUser(id: id, name: name ?? this.name, email: email, role: role);
+
   Map<String, Object> toJson() => {
     'name': name,
     'email': email,
