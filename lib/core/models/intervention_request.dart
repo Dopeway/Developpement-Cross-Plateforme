@@ -67,4 +67,16 @@ class InterventionRequest {
     date: date,
     status: status ?? this.status,
   );
+
+  Map<String, Object> toJson() => {
+    'service': service,
+    'artisanId': artisanId,
+    'artisanName': artisanName,
+    'clientId': clientId,
+    'clientName': clientName,
+    'description': description,
+    'address': address,
+    'date': date,
+    'status': status.name,
+  };
 }

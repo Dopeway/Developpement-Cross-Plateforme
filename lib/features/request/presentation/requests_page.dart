@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/models/intervention_request.dart';
-import '../../../core/state/demo_scope.dart';
+import '../../../core/state/app_scope.dart';
 
 class RequestsPage extends StatefulWidget {
   const RequestsPage({super.key});
@@ -21,8 +21,27 @@ class _RequestsPageState extends State<RequestsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final requests = DemoScope.of(context)
-        .requestsForCurrentUser()
+    return StreamBuilder<List<InterventionRequest>>(
+      stream: AppScope.of(context).requests,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Center(
+            child: Text('Impossible de charger les demandes.'),
+          );
+        }
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return _buildContent(context, snapshot.data!);
+      },
+    );
+  }
+
+  Widget _buildContent(
+    BuildContext context,
+    List<InterventionRequest> allRequests,
+  ) {
+    final requests = allRequests
         .where((request) => _filter == null || request.status == _filter)
         .toList();
     return ListView(

@@ -1,20 +1,63 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/models/app_user.dart';
+import '../../../core/models/artisan.dart';
 import '../../../core/models/intervention_request.dart';
-import '../../../core/state/demo_scope.dart';
+import '../../../core/state/app_scope.dart';
 import '../../admin/presentation/admin_page.dart';
 
 class ActivityPage extends StatelessWidget {
   const ActivityPage({super.key});
   @override
   Widget build(BuildContext context) {
-    final store = DemoScope.of(context);
-    if (store.currentUser!.role == UserRole.admin) {
+    final controller = AppScope.of(context);
+    if (controller.currentUser!.role == UserRole.admin) {
       return const AdminPage(embedded: true);
     }
-    final pending = store
-        .requestsForCurrentUser()
+    return StreamBuilder<Artisan?>(
+      stream: controller.artisanProfile,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Center(
+            child: Text('Impossible de charger le profil artisan.'),
+          );
+        }
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.data == null) {
+          return const Center(
+            child: Text('Votre profil artisan est introuvable.'),
+          );
+        }
+        return StreamBuilder<List<InterventionRequest>>(
+          stream: controller.requests,
+          builder: (context, requestsSnapshot) {
+            if (requestsSnapshot.hasError) {
+              return const Center(
+                child: Text('Impossible de charger les demandes.'),
+              );
+            }
+            if (!requestsSnapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            return _buildContent(
+              context,
+              requestsSnapshot.data!,
+              isVerified: snapshot.data!.verified,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildContent(
+    BuildContext context,
+    List<InterventionRequest> requests, {
+    required bool isVerified,
+  }) {
+    final pending = requests
         .where((request) => request.status == RequestStatus.pending)
         .toList();
     return ListView(
@@ -54,13 +97,12 @@ class ActivityPage extends StatelessWidget {
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () {
-                            store.updateRequestStatus(
+                          onPressed: () async {
+                            await _updateStatus(
+                              context,
                               request.id,
                               RequestStatus.refused,
-                            );
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Demande refusée.')),
+                              'Demande refusée.',
                             );
                           },
                           child: const Text('Refuser'),
@@ -69,15 +111,12 @@ class ActivityPage extends StatelessWidget {
                       const SizedBox(width: 12),
                       Expanded(
                         child: FilledButton(
-                          onPressed: () {
-                            store.updateRequestStatus(
+                          onPressed: () async {
+                            await _updateStatus(
+                              context,
                               request.id,
                               RequestStatus.accepted,
-                            );
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Demande acceptée.'),
-                              ),
+                              'Demande acceptée.',
                             );
                           },
                           child: const Text('Accepter'),
@@ -91,10 +130,18 @@ class ActivityPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        const ListTile(
-          leading: Icon(Icons.verified_outlined),
-          title: Text('Profil vérifié'),
-          subtitle: Text('Vos justificatifs ont été validés.'),
+        ListTile(
+          leading: Icon(
+            isVerified
+                ? Icons.verified_outlined
+                : Icons.pending_actions_outlined,
+          ),
+          title: Text(
+            isVerified ? 'Profil vérifié' : 'Profil en cours de validation',
+          ),
+          subtitle: Text(
+            isVerified ? 'Vos justificatifs ont été validés.' : 'L’administration examinera votre profil avant sa mise en avant.',
+          ),
         ),
         const ListTile(
           leading: Icon(Icons.calendar_month_outlined),
@@ -103,5 +150,26 @@ class ActivityPage extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Future<void> _updateStatus(
+    BuildContext context,
+    String requestId,
+    RequestStatus status,
+    String successMessage,
+  ) async {
+    try {
+      await AppScope.of(context).updateRequestStatus(requestId, status);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(successMessage)));
+      }
+    } on Exception {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('La mise à jour a échoué.')),
+        );
+      }
+    }
   }
 }

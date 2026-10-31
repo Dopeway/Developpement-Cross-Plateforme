@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
-import '../../../core/state/demo_scope.dart';
+import '../../../core/models/artisan.dart';
+import '../../../core/state/app_scope.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,7 +16,24 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final artisans = DemoScope.of(context).artisans.where((artisan) {
+    return StreamBuilder<List<Artisan>>(
+      stream: AppScope.of(context).artisans,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Center(
+            child: Text('Impossible de charger les artisans.'),
+          );
+        }
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return _buildContent(context, snapshot.data!);
+      },
+    );
+  }
+
+  Widget _buildContent(BuildContext context, List<Artisan> allArtisans) {
+    final artisans = allArtisans.where((artisan) {
       final query = _query.toLowerCase();
       final matchesQuery =
           query.isEmpty ||
@@ -24,10 +42,7 @@ class _HomePageState extends State<HomePage> {
           artisan.area.toLowerCase().contains(query);
       return matchesQuery && (_trade == null || artisan.trade == _trade);
     }).toList();
-    final trades = DemoScope.of(context).artisans
-        .map((artisan) => artisan.trade)
-        .toSet()
-        .toList();
+    final trades = allArtisans.map((artisan) => artisan.trade).toSet().toList();
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
       children: [

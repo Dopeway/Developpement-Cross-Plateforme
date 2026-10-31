@@ -13,7 +13,6 @@ class AppUser {
     required this.id,
     required this.name,
     required this.email,
-    required this.password,
     required this.role,
   });
 
@@ -21,13 +20,17 @@ class AppUser {
     id: json['id']! as String,
     name: json['name']! as String,
     email: json['email']! as String,
-    password: json['password']! as String,
     role: UserRole.values.byName(json['role']! as String),
   );
 
   final String id;
   final String name;
   final String email;
-  final String password;
   final UserRole role;
+
+  Map<String, Object> toJson() => {
+    'name': name,
+    'email': email,
+    'role': role.name,
+  };
 }

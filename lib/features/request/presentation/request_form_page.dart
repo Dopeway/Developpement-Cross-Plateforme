@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/models/artisan.dart';
-import '../../../core/state/demo_scope.dart';
+import '../../../core/state/app_scope.dart';
 
 class RequestFormPage extends StatefulWidget {
   const RequestFormPage({super.key, required this.artisan});
@@ -15,6 +15,7 @@ class _RequestFormPageState extends State<RequestFormPage> {
   final _descriptionController = TextEditingController();
   final _addressController = TextEditingController();
   String _slot = 'Aujourd’hui · 16:00';
+  bool _isSubmitting = false;
   @override
   void dispose() {
     _descriptionController.dispose();
@@ -22,20 +23,32 @@ class _RequestFormPageState extends State<RequestFormPage> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    DemoScope.of(context).createRequest(
-      artisan: widget.artisan,
-      description: _descriptionController.text,
-      address: _addressController.text,
-      slot: _slot,
-    );
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Demande créée. Retrouvez-la dans Mes demandes.'),
-      ),
-    );
-    Navigator.pop(context);
+    setState(() => _isSubmitting = true);
+    try {
+      await AppScope.of(context).createRequest(
+        artisan: widget.artisan,
+        description: _descriptionController.text,
+        address: _addressController.text,
+        slot: _slot,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Demande créée. Retrouvez-la dans Mes demandes.'),
+        ),
+      );
+      Navigator.pop(context);
+    } on Exception {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('La demande n’a pas pu être envoyée.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   @override
@@ -103,8 +116,14 @@ class _RequestFormPageState extends State<RequestFormPage> {
           ),
           const SizedBox(height: 28),
           FilledButton(
-            onPressed: _submit,
-            child: const Text('Envoyer la demande'),
+            onPressed: _isSubmitting ? null : _submit,
+            child: _isSubmitting
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Envoyer la demande'),
           ),
         ],
       ),

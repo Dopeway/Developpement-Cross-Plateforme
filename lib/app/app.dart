@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'app_routes.dart';
 import 'app_theme.dart';
-import '../core/data/demo_repository.dart';
-import '../core/state/demo_scope.dart';
-import '../core/state/demo_store.dart';
+import '../core/state/app_controller.dart';
+import '../core/state/app_scope.dart';
+import '../features/auth/presentation/login_page.dart';
+import '../features/shell/presentation/app_shell.dart';
 
 class QuickFixApp extends StatefulWidget {
   const QuickFixApp({super.key});
@@ -14,42 +15,38 @@ class QuickFixApp extends StatefulWidget {
 }
 
 class _QuickFixAppState extends State<QuickFixApp> {
-  late final Future<DemoStore> _storeFuture = const DemoRepository()
-      .load()
-      .then(DemoStore.new);
+  late final AppController _controller = AppController();
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<DemoStore>(
-    future: _storeFuture,
-    builder: (context, snapshot) {
-      if (snapshot.hasError) {
-        return MaterialApp(
-          theme: buildAppTheme(),
-          home: const Scaffold(
-            body: Center(
-              child: Text('Impossible de charger la démonstration.'),
-            ),
-          ),
-        );
-      }
-      if (!snapshot.hasData) {
-        return MaterialApp(
-          theme: buildAppTheme(),
-          home: const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          ),
-        );
-      }
-      return DemoScope(
-        store: snapshot.data!,
-        child: MaterialApp(
-          title: 'QuickFix Tunisia',
-          debugShowCheckedModeBanner: false,
-          theme: buildAppTheme(),
-          initialRoute: AppRoutes.login,
-          onGenerateRoute: AppRoutes.onGenerateRoute,
-        ),
-      );
-    },
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AppScope(
+    controller: _controller,
+    child: MaterialApp(
+      title: 'QuickFix Tunisia',
+      debugShowCheckedModeBanner: false,
+      theme: buildAppTheme(),
+      home: const _AppGate(),
+      onGenerateRoute: AppRoutes.onGenerateRoute,
+    ),
   );
+}
+
+class _AppGate extends StatelessWidget {
+  const _AppGate();
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = AppScope.of(context);
+    if (!controller.authResolved) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    return controller.currentUser == null
+        ? const LoginPage()
+        : const AppShell();
+  }
 }

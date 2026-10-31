@@ -1,5 +1,7 @@
 # Dart and Flutter
 .dart_tool/
+.flutter-plugins-dependencies
+firebase-debug.log
 .packages
 .pub/
 build/

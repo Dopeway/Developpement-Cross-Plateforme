@@ -30,4 +30,15 @@ class Artisan {
   final int startingPrice;
   final bool verified;
   final bool availableToday;
+
+  Map<String, Object> toJson() => {
+    'name': name,
+    'trade': trade,
+    'area': area,
+    'rating': rating,
+    'reviewCount': reviewCount,
+    'startingPrice': startingPrice,
+    'verified': verified,
+    'availableToday': availableToday,
+  };
 }

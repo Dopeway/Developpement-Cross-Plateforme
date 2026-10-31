@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "646464769418",
+    "project_id": "crossplatforme-d7af5",
+    "storage_bucket": "crossplatforme-d7af5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:646464769418:android:dc3d7e6393b73754be4c73",
+        "android_client_info": {
+          "package_name": "com.quickfix.quickfix_tunisia"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyACa0VSS6EZe8HfM7G6ua2HHjwtaNxY--U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

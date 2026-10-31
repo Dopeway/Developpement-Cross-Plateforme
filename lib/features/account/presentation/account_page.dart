@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
-import '../../../core/state/demo_scope.dart';
+import '../../../core/models/app_user.dart';
+import '../../../core/state/app_scope.dart';
 
 class AccountPage extends StatelessWidget {
   const AccountPage({super.key});
   @override
   Widget build(BuildContext context) {
-    final store = DemoScope.of(context);
-    final user = store.currentUser!;
+    final controller = AppScope.of(context);
+    final user = controller.currentUser!;
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
@@ -17,6 +18,8 @@ class AccountPage extends StatelessWidget {
         Center(
           child: Text(user.name, style: Theme.of(context).textTheme.titleLarge),
         ),
+        const SizedBox(height: 4),
+        Center(child: Text(user.role.label)),
         const SizedBox(height: 24),
         const ListTile(
           leading: Icon(Icons.person_outline),
@@ -45,13 +48,11 @@ class AccountPage extends StatelessWidget {
         ListTile(
           leading: const Icon(Icons.logout),
           title: const Text('Se déconnecter'),
-          onTap: () {
-            store.logout();
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              AppRoutes.login,
-              (_) => false,
-            );
+          onTap: () async {
+            await controller.logout();
+            if (context.mounted) {
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            }
           },
         ),
       ],

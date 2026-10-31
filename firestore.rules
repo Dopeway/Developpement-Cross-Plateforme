@@ -1,0 +1,70 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /users/{userId} {
+      allow create: if isOwner(userId)
+        && request.resource.data.role in ['client', 'artisan']
+        && request.resource.data.keys().hasOnly(['name', 'email', 'role']);
+      allow read: if isOwner(userId) || isAdmin();
+      allow update: if (isOwner(userId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']))
+        || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /artisans/{artisanId} {
+      allow read: if signedIn()
+        && (resource.data.verified == true || isOwner(artisanId) || isAdmin());
+      allow create: if isAdmin()
+        || (isOwner(artisanId)
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'artisan'
+          && request.resource.data.keys().hasOnly([
+            'name', 'trade', 'area', 'rating', 'reviewCount', 'startingPrice',
+            'verified', 'availableToday'
+          ])
+          && request.resource.data.name is string
+          && request.resource.data.trade is string
+          && request.resource.data.area is string
+          && request.resource.data.rating == 0
+          && request.resource.data.reviewCount == 0
+          && request.resource.data.startingPrice is int
+          && request.resource.data.startingPrice >= 0
+          && request.resource.data.verified == false
+          && request.resource.data.availableToday == true);
+      allow update, delete: if isAdmin();
+    }
+
+    match /requests/{requestId} {
+      allow create: if signedIn()
+        && request.resource.data.clientId == request.auth.uid
+        && request.resource.data.status == 'pending';
+      allow read: if signedIn()
+        && (resource.data.clientId == request.auth.uid
+          || resource.data.artisanId == request.auth.uid
+          || isAdmin());
+      allow update: if isAdmin()
+        || (resource.data.artisanId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))
+        || (resource.data.clientId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+          && request.resource.data.status == 'cancelled');
+      allow delete: if isAdmin()
+        || (resource.data.clientId == request.auth.uid
+          && resource.data.status == 'pending');
+    }
+  }
+}

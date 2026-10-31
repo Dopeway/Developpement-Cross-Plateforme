@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../account/presentation/account_page.dart';
+import '../../admin/presentation/admin_page.dart';
 import '../../activity/presentation/activity_page.dart';
 import '../../home/presentation/home_page.dart';
 import '../../request/presentation/requests_page.dart';
 import '../../../core/models/app_user.dart';
-import '../../../core/state/demo_scope.dart';
+import '../../../core/state/app_scope.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -17,7 +18,7 @@ class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
   @override
   Widget build(BuildContext context) {
-    final role = DemoScope.of(context).currentUser!.role;
+    final role = AppScope.of(context).currentUser!.role;
     final pages = switch (role) {
       UserRole.client => const <Widget>[
         HomePage(),
@@ -30,7 +31,7 @@ class _AppShellState extends State<AppShell> {
         AccountPage(),
       ],
       UserRole.admin => const <Widget>[
-        ActivityPage(),
+        AdminPage(embedded: true),
         RequestsPage(),
         AccountPage(),
       ],
