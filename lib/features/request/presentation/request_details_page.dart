@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/models/intervention_request.dart';
+import '../../../core/state/app_scope.dart';
 import '../../../core/widgets/request_status_widgets.dart';
+import '../../../app/app_routes.dart';
 
 class RequestDetailsPage extends StatelessWidget {
   const RequestDetailsPage({super.key, required this.request});
@@ -10,6 +12,10 @@ class RequestDetailsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = AppScope.maybeOf(context)?.currentUser;
+    final canChat =
+        request.status.allowsChat &&
+        (user?.id == request.clientId || user?.id == request.artisanId);
     return Scaffold(
       appBar: AppBar(title: const Text('Détail de la demande')),
       body: SafeArea(
@@ -53,6 +59,16 @@ class RequestDetailsPage extends StatelessWidget {
               title: 'Description du besoin',
               children: [Text(request.description)],
             ),
+            if (canChat) ...[
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: () =>
+                    Navigator.of(context)
+                        .pushNamed(AppRoutes.chat, arguments: request),
+                icon: const Icon(Icons.chat_outlined),
+                label: const Text('Ouvrir la discussion'),
+              ),
+            ],
             const SizedBox(height: 24),
             _DetailSection(
               title: 'Suivi de la demande',

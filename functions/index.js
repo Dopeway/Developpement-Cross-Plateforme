@@ -110,3 +110,24 @@ exports.notifyArtisanOfReview = onDocumentCreated(
     });
   },
 );
+
+exports.notifyParticipantOfChatMessage = onDocumentCreated(
+  'requests/{requestId}/messages/{messageId}',
+  async (event) => {
+    const message = event.data?.data();
+    const request = await database.collection('requests').doc(event.params.requestId).get();
+    const requestData = request.data();
+    if (!message || !requestData) return;
+    const recipientId = message.senderId === requestData.clientId
+      ? requestData.artisanId
+      : requestData.clientId;
+    return createNotification({
+      id: `chat-message-${event.id}`,
+      recipientId,
+      type: 'chatMessage',
+      title: 'Nouveau message',
+      message: `${message.senderName} vous a envoyé un message concernant ${requestData.service}.`,
+      requestId: event.params.requestId,
+    });
+  },
+);

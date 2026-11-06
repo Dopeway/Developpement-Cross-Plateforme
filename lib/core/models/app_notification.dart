@@ -8,6 +8,7 @@ enum AppNotificationType {
   requestRefused,
   requestCancelled,
   reviewCreated,
+  chatMessage,
 }
 
 class AppNotification {

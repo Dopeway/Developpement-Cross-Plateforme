@@ -37,6 +37,9 @@ extension RequestStatusLabel on RequestStatus {
     RequestStatus.refused ||
     RequestStatus.cancelled => null,
   };
+
+  bool get allowsChat =>
+      this == RequestStatus.accepted || this == RequestStatus.inProgress;
 }
 
 class InterventionRequest {

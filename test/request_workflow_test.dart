@@ -49,4 +49,11 @@ void main() {
     expect(RequestStatus.inProgress.nextArtisanStatus, RequestStatus.completed);
     expect(RequestStatus.completed.nextArtisanStatus, isNull);
   });
+
+  test('ouvre le chat uniquement pendant une intervention active', () {
+    expect(RequestStatus.pending.allowsChat, isFalse);
+    expect(RequestStatus.accepted.allowsChat, isTrue);
+    expect(RequestStatus.inProgress.allowsChat, isTrue);
+    expect(RequestStatus.completed.allowsChat, isFalse);
+  });
 }

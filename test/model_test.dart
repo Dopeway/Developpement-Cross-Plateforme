@@ -3,6 +3,7 @@ import 'package:quickfix_tunisia/core/models/app_user.dart';
 import 'package:quickfix_tunisia/core/models/app_notification.dart';
 import 'package:quickfix_tunisia/core/models/artisan.dart';
 import 'package:quickfix_tunisia/core/models/artisan_catalog.dart';
+import 'package:quickfix_tunisia/core/models/chat_message.dart';
 import 'package:quickfix_tunisia/core/models/intervention_request.dart';
 
 void main() {
@@ -87,5 +88,29 @@ void main() {
     expect(notification.type, AppNotificationType.interventionCompleted);
     expect(notification.isRead, isFalse);
     expect(notification.requestId, 'request-1');
+
+    final chatNotification = AppNotification.fromJson(const <String, Object?>{
+      'id': 'notification-2',
+      'recipientId': 'artisan-1',
+      'type': 'chatMessage',
+      'title': 'Nouveau message',
+      'message': 'Vous avez reçu un message.',
+      'isRead': false,
+    });
+
+    expect(chatNotification.type, AppNotificationType.chatMessage);
+  });
+
+  test('deserializes a chat message', () {
+    final message = ChatMessage.fromJson(<String, Object?>{
+      'id': 'message-1',
+      'senderId': 'client-1',
+      'senderName': 'Amira Khalfallah',
+      'content': 'Je serai disponible a 16h.',
+      'createdAt': DateTime(2026, 11, 6, 16),
+    });
+
+    expect(message.senderId, 'client-1');
+    expect(message.createdAt, DateTime(2026, 11, 6, 16));
   });
 }

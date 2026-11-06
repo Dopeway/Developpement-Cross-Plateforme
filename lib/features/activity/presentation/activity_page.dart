@@ -5,6 +5,7 @@ import '../../../core/models/artisan_catalog.dart';
 import '../../../core/models/intervention_request.dart';
 import '../../../core/state/app_scope.dart';
 import '../../../core/widgets/request_status_widgets.dart';
+import 'missing_artisan_profile.dart';
 
 class ActivityPage extends StatelessWidget {
   const ActivityPage({super.key});
@@ -20,14 +21,12 @@ class ActivityPage extends StatelessWidget {
             child: Text('Impossible de charger votre profil.'),
           );
         }
-        if (!artisanSnapshot.hasData) {
+        if (artisanSnapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
         final artisan = artisanSnapshot.data;
         if (artisan == null) {
-          return const Center(
-            child: Text('Votre profil artisan est introuvable.'),
-          );
+          return const MissingArtisanProfile();
         }
         return StreamBuilder<List<InterventionRequest>>(
           stream: controller.requests,

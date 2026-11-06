@@ -99,6 +99,34 @@ service cloud.firestore {
       allow delete: if isAdmin()
         || (resource.data.clientId == request.auth.uid
           && resource.data.status == 'pending');
+
+      match /messages/{messageId} {
+        function chatIsOpen() {
+          return get(/databases/$(database)/documents/requests/$(requestId)).data.status in ['accepted', 'inProgress'];
+        }
+
+        function isRequestParticipant() {
+          return signedIn()
+            && request.auth.uid in [
+              get(/databases/$(database)/documents/requests/$(requestId)).data.clientId,
+              get(/databases/$(database)/documents/requests/$(requestId)).data.artisanId
+            ];
+        }
+
+        allow read: if chatIsOpen() && isRequestParticipant();
+        allow create: if chatIsOpen()
+          && isRequestParticipant()
+          && request.resource.data.keys().hasOnly([
+            'senderId', 'senderName', 'content', 'createdAt'
+          ])
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.senderName == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.name
+          && request.resource.data.content is string
+          && request.resource.data.content.size() > 0
+          && request.resource.data.content.size() <= 1000
+          && request.resource.data.createdAt == request.time;
+        allow update, delete: if false;
+      }
     }
 
     match /reviews/{reviewId} {

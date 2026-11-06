@@ -14,4 +14,7 @@ class AppScope extends InheritedNotifier<AppController> {
     assert(scope != null, 'AppScope is missing from the widget tree.');
     return scope!.notifier!;
   }
+
+  static AppController? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AppScope>()?.notifier;
 }

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../../features/artisans/data/artisan_repository.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/auth/data/profile_registration_repository.dart';
+import '../../features/chat/data/chat_repository.dart';
 import '../../features/notifications/data/notification_repository.dart';
 import '../../features/request/data/request_repository.dart';
 import '../../features/reviews/data/review_repository.dart';
@@ -14,6 +15,7 @@ import '../models/app_user.dart';
 import '../models/app_notification.dart';
 import '../models/artisan.dart';
 import '../models/artisan_catalog.dart';
+import '../models/chat_message.dart';
 import '../models/intervention_request.dart';
 import '../models/review.dart';
 
@@ -24,6 +26,7 @@ class AppController extends ChangeNotifier {
     UserRepository? userRepository,
     ArtisanRepository? artisanRepository,
     RequestRepository? requestRepository,
+    ChatRepository? chatRepository,
     ReviewRepository? reviewRepository,
     NotificationRepository? notificationRepository,
   }) : _authRepository = authRepository ?? AuthRepository(),
@@ -32,6 +35,7 @@ class AppController extends ChangeNotifier {
        _userRepository = userRepository ?? UserRepository(),
        _artisanRepository = artisanRepository ?? ArtisanRepository(),
        _requestRepository = requestRepository ?? RequestRepository(),
+       _chatRepository = chatRepository ?? ChatRepository(),
        _reviewRepository = reviewRepository ?? ReviewRepository(),
        _notificationRepository =
            notificationRepository ?? NotificationRepository() {
@@ -43,6 +47,7 @@ class AppController extends ChangeNotifier {
   final UserRepository _userRepository;
   final ArtisanRepository _artisanRepository;
   final RequestRepository _requestRepository;
+  final ChatRepository _chatRepository;
   final ReviewRepository _reviewRepository;
   final NotificationRepository _notificationRepository;
   late final StreamSubscription<User?> _authSubscription;
@@ -61,6 +66,11 @@ class AppController extends ChangeNotifier {
   Stream<List<InterventionRequest>> get requests => _currentUser == null
       ? Stream<List<InterventionRequest>>.value(const [])
       : _requestRepository.watchForUser(_currentUser!);
+  Stream<List<ChatMessage>> chatMessages(InterventionRequest request) {
+    _ensureChatAccess(request);
+    return _chatRepository.watchMessages(request.id);
+  }
+
   Stream<List<AppUser>> get users => _userRepository.watchUsers();
   Stream<List<Review>> reviewsForArtisan(String id) =>
       _reviewRepository.watchForArtisan(id);
@@ -197,6 +207,36 @@ class AppController extends ChangeNotifier {
     await _requestRepository.updateStatus(id: id, status: status);
   }
 
+  Future<void> sendChatMessage({
+    required InterventionRequest request,
+    required String content,
+  }) async {
+    _ensureChatAccess(request);
+    final message = content.trim();
+    if (message.isEmpty || message.length > 1000) {
+      throw ArgumentError(
+        'Le message doit contenir entre 1 et 1000 caractères.',
+      );
+    }
+    final user = _currentUser!;
+    await _chatRepository.send(
+      requestId: request.id,
+      senderId: user.id,
+      senderName: user.name,
+      content: message,
+    );
+  }
+
+  void _ensureChatAccess(InterventionRequest request) {
+    final user = _currentUser;
+    final isParticipant =
+        user != null &&
+        (request.clientId == user.id || request.artisanId == user.id);
+    if (!isParticipant || !request.status.allowsChat) {
+      throw StateError('Cette discussion n’est pas disponible.');
+    }
+  }
+
   Future<void> updateArtisanVerification(
     String id,
     ArtisanVerificationStatus status, {
@@ -235,6 +275,29 @@ class AppController extends ChangeNotifier {
       area: area,
       startingPrice: startingPrice,
       availableToday: availableToday,
+    );
+  }
+
+  Future<void> createArtisanProfile({
+    required String name,
+    required ArtisanTrade trade,
+    required InterventionArea area,
+    required int startingPrice,
+    required bool availableToday,
+  }) async {
+    final user = _currentUser;
+    if (user == null || user.role != UserRole.artisan) {
+      throw StateError('Seul un artisan peut créer ce profil.');
+    }
+    if (name.trim().length < 2 || startingPrice < 0) {
+      throw ArgumentError('Les informations du profil sont incomplètes.');
+    }
+    await _artisanRepository.createArtisanProfile(
+      id: user.id,
+      name: name,
+      trade: trade,
+      area: area,
+      startingPrice: startingPrice,
     );
   }
 

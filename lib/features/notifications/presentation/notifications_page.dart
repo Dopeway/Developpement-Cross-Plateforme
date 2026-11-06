@@ -150,6 +150,7 @@ class _NotificationCard extends StatelessWidget {
     AppNotificationType.requestRefused => Icons.block_outlined,
     AppNotificationType.requestCancelled => Icons.cancel_outlined,
     AppNotificationType.reviewCreated => Icons.star_outline,
+    AppNotificationType.chatMessage => Icons.chat_outlined,
   };
 
   String _formatDate(DateTime? date) {

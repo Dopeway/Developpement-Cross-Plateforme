@@ -10,7 +10,7 @@ Application Flutter de mise en relation entre clients et artisans pour le dépan
 
 Le cycle normal d’une demande est `pending` → `accepted` → `inProgress` → `completed`. Une demande en attente peut aussi devenir `refused` ou `cancelled`.
 
-La V1 n’intègre pas de paiement, de chat, de justificatifs documentaires ni d’envoi de photos.
+Le chat est disponible uniquement au client et à l’artisan concerné, après acceptation et pendant l’intervention. Il permet de préciser l’accès, l’horaire ou le besoin ; il est fermé lorsque l’intervention est terminée, refusée ou annulée.
 
 ## Prérequis
 
@@ -79,7 +79,7 @@ flutter run
 - `lib/features/request/data` : création, lecture et mise à jour des demandes ;
 - `lib/core/state/app_controller.dart` : état de session léger partagé par l’interface.
 
-Les collections Firestore sont `users`, `artisans`, `requests` et `reviews`. Les règles dans `firestore.rules` limitent les lectures et modifications au client, à l’artisan concerné ou à l’administrateur. Les contrôles de transition sont également appliqués côté serveur.
+Les collections Firestore sont `users`, `artisans`, `requests` et `reviews`. Les messages sont stockés dans `requests/{requestId}/messages`. Les règles dans `firestore.rules` limitent les lectures et modifications au client, à l’artisan concerné ou à l’administrateur. Les contrôles de transition sont également appliqués côté serveur.
 
 ## Notifications
 

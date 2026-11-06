@@ -5,6 +5,7 @@ import '../core/models/intervention_request.dart';
 import '../features/admin/presentation/admin_page.dart';
 import '../features/artisans/presentation/artisan_detail_page.dart';
 import '../features/auth/presentation/login_page.dart';
+import '../features/chat/presentation/chat_page.dart';
 import '../features/request/presentation/request_form_page.dart';
 import '../features/request/presentation/request_details_page.dart';
 import '../features/shell/presentation/app_shell.dart';
@@ -15,6 +16,7 @@ abstract final class AppRoutes {
   static const artisanDetail = '/artisan';
   static const requestForm = '/demande';
   static const requestDetails = '/demande/details';
+  static const chat = '/demande/discussion';
   static const admin = '/administration';
   static Route<void> onGenerateRoute(
     RouteSettings settings,
@@ -33,6 +35,11 @@ abstract final class AppRoutes {
         builder: (_) => RequestDetailsPage(
           request: settings.arguments! as InterventionRequest,
         ),
+      ),
+    chat when settings.arguments is InterventionRequest =>
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            ChatPage(request: settings.arguments! as InterventionRequest),
       ),
     admin => MaterialPageRoute<void>(builder: (_) => const AdminPage()),
     _ => MaterialPageRoute<void>(
