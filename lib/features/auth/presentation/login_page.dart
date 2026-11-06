@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/models/app_user.dart';
+import '../../../core/models/artisan_catalog.dart';
 import '../../../core/state/app_scope.dart';
+import '../../../core/widgets/responsive_form_layout.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -155,10 +157,10 @@ class _RegisterPageState extends State<RegisterPage> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _tradeController = TextEditingController();
-  final _areaController = TextEditingController();
   final _startingPriceController = TextEditingController();
   UserRole _role = UserRole.client;
+  ArtisanTrade? _trade;
+  InterventionArea? _area;
   String? _error;
   bool _isSubmitting = false;
 
@@ -167,8 +169,6 @@ class _RegisterPageState extends State<RegisterPage> {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _tradeController.dispose();
-    _areaController.dispose();
     _startingPriceController.dispose();
     super.dispose();
   }
@@ -185,8 +185,8 @@ class _RegisterPageState extends State<RegisterPage> {
         email: _emailController.text,
         password: _passwordController.text,
         role: _role,
-        trade: _role == UserRole.artisan ? _tradeController.text : null,
-        area: _role == UserRole.artisan ? _areaController.text : null,
+        trade: _role == UserRole.artisan ? _trade : null,
+        area: _role == UserRole.artisan ? _area : null,
         startingPrice: _role == UserRole.artisan
             ? int.tryParse(_startingPriceController.text)
             : null,
@@ -207,11 +207,11 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Créer un compte')),
-    body: SafeArea(
-      child: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(24),
+    body: Form(
+      key: _formKey,
+      child: ResponsiveFormLayout(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             TextFormField(
               controller: _nameController,
@@ -268,26 +268,48 @@ class _RegisterPageState extends State<RegisterPage> {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
-              TextFormField(
-                controller: _tradeController,
-                textCapitalization: TextCapitalization.words,
+              DropdownButtonFormField<ArtisanTrade>(
+                initialValue: _trade,
                 decoration: const InputDecoration(
                   labelText: 'Métier',
-                  hintText: 'Ex. Plombier',
+                  helperText: 'Choisissez votre activité principale.',
                 ),
-                validator: (value) =>
-                    _artisanTextValidator(value, 'votre métier'),
+                items: ArtisanTrade.values
+                    .map(
+                      (trade) => DropdownMenuItem(
+                        value: trade,
+                        child: Text(trade.label),
+                      ),
+                    )
+                    .toList(),
+                onChanged: _isSubmitting
+                    ? null
+                    : (trade) => setState(() => _trade = trade),
+                validator: (value) => _role == UserRole.artisan && value == null
+                    ? 'Choisissez votre métier.'
+                    : null,
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _areaController,
-                textCapitalization: TextCapitalization.words,
+              DropdownButtonFormField<InterventionArea>(
+                initialValue: _area,
                 decoration: const InputDecoration(
                   labelText: 'Zone d’intervention',
-                  hintText: 'Ex. Tunis',
+                  helperText: 'Sélectionnez le gouvernorat principal.',
                 ),
-                validator: (value) =>
-                    _artisanTextValidator(value, 'votre zone d’intervention'),
+                items: InterventionArea.values
+                    .map(
+                      (area) => DropdownMenuItem(
+                        value: area,
+                        child: Text(area.label),
+                      ),
+                    )
+                    .toList(),
+                onChanged: _isSubmitting
+                    ? null
+                    : (area) => setState(() => _area = area),
+                validator: (value) => _role == UserRole.artisan && value == null
+                    ? 'Choisissez votre zone d’intervention.'
+                    : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -340,11 +362,6 @@ class _RegisterPageState extends State<RegisterPage> {
       ),
     ),
   );
-
-  String? _artisanTextValidator(String? value, String label) {
-    if (_role != UserRole.artisan) return null;
-    return value == null || value.trim().length < 2 ? 'Indiquez $label.' : null;
-  }
 }
 
 String? _emailValidator(String? value) => value == null || !value.contains('@')

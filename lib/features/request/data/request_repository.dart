@@ -39,7 +39,7 @@ class RequestRepository {
     required String address,
     required String slot,
   }) => _requests.add({
-    'service': artisan.trade,
+    'service': artisan.trade.label,
     'artisanId': artisan.id,
     'artisanName': artisan.name,
     'clientId': client.id,

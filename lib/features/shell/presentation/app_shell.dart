@@ -31,10 +31,17 @@ class _AppShellState extends State<AppShell> {
       appBar: AppBar(
         title: Text(destinations[_selectedIndex].label),
         actions: [
-          IconButton(
-            tooltip: 'Notifications',
-            onPressed: _openNotifications,
-            icon: const Icon(Icons.notifications_outlined),
+          StreamBuilder<int>(
+            stream: AppScope.of(context).unreadNotificationCount,
+            builder: (context, snapshot) => Badge(
+              isLabelVisible: (snapshot.data ?? 0) > 0,
+              label: Text('${snapshot.data ?? 0}'),
+              child: IconButton(
+                tooltip: 'Notifications',
+                onPressed: _openNotifications,
+                icon: const Icon(Icons.notifications_outlined),
+              ),
+            ),
           ),
         ],
       ),

@@ -26,7 +26,7 @@ class ArtisanDetailPage extends StatelessWidget {
         const SizedBox(height: 16),
         Text(artisan.name, style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 4),
-        Text('${artisan.trade} · ${artisan.area}'),
+        Text('${artisan.trade.label} · ${artisan.area.label}'),
         const SizedBox(height: 12),
         if (artisan.verified)
           const Chip(

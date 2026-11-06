@@ -51,6 +51,19 @@ L’inscription permet de choisir un compte `client` ou `artisan` :
 
 Les règles Firestore interdisent à un artisan de se déclarer vérifié ou de modifier les données de validation.
 
+### Catalogue des profils artisans
+
+Le métier et la zone d’intervention sont des valeurs contrôlées. L’application affiche leurs libellés français, mais Firestore stocke uniquement des identifiants stables : par exemple `plumber` et `tunis`. Les zones actuellement proposées sont Tunis, Ariana, Ben Arous et Manouba.
+
+Après le déploiement des règles, convertissez les fiches existantes depuis un environnement administrateur Firebase. La commande utilise les identifiants applicatifs par défaut ou le chemin indiqué dans `GOOGLE_APPLICATION_CREDENTIALS`; elle ne contient aucun secret.
+
+```bash
+cd functions
+npm run migrate:artisan-catalog
+```
+
+La migration convertit notamment `Plomberie` / `Plombier` en `plumber` et `Tunis` en `tunis`. Elle liste et laisse intactes les fiches dont les valeurs ne sont pas reconnues afin de les corriger explicitement.
+
 ## Lancer l’application
 
 ```bash
@@ -67,6 +80,21 @@ flutter run
 - `lib/core/state/app_controller.dart` : état de session léger partagé par l’interface.
 
 Les collections Firestore sont `users`, `artisans`, `requests` et `reviews`. Les règles dans `firestore.rules` limitent les lectures et modifications au client, à l’artisan concerné ou à l’administrateur. Les contrôles de transition sont également appliqués côté serveur.
+
+## Notifications
+
+Les notifications sont persistées dans la collection Firestore `notifications`. Elles sont créées par des Cloud Functions afin que le client ne puisse jamais notifier arbitrairement un autre compte. Elles couvrent notamment : nouvelle demande pour l’artisan, acceptation, démarrage, fin d’intervention, refus, annulation et nouvel avis.
+
+Installez les dépendances des fonctions puis déployez-les avec les règles :
+
+```bash
+cd functions
+npm install
+cd ..
+firebase deploy --only functions,firestore:rules,firestore:indexes
+```
+
+L’application affiche une pastille de notifications non lues et permet de les marquer comme lues. Les notifications système hors application (push) ne sont pas incluses : elles nécessiteraient la collecte explicite d’un jeton FCM et l’autorisation de l’utilisateur.
 
 ## Vérifications
 

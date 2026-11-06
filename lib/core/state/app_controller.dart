@@ -5,34 +5,46 @@ import 'package:flutter/foundation.dart';
 
 import '../../features/artisans/data/artisan_repository.dart';
 import '../../features/auth/data/auth_repository.dart';
+import '../../features/auth/data/profile_registration_repository.dart';
+import '../../features/notifications/data/notification_repository.dart';
 import '../../features/request/data/request_repository.dart';
 import '../../features/reviews/data/review_repository.dart';
 import '../../features/users/data/user_repository.dart';
 import '../models/app_user.dart';
+import '../models/app_notification.dart';
 import '../models/artisan.dart';
+import '../models/artisan_catalog.dart';
 import '../models/intervention_request.dart';
 import '../models/review.dart';
 
 class AppController extends ChangeNotifier {
   AppController({
     AuthRepository? authRepository,
+    ProfileRegistrationRepository? profileRegistrationRepository,
     UserRepository? userRepository,
     ArtisanRepository? artisanRepository,
     RequestRepository? requestRepository,
     ReviewRepository? reviewRepository,
+    NotificationRepository? notificationRepository,
   }) : _authRepository = authRepository ?? AuthRepository(),
+       _profileRegistrationRepository =
+           profileRegistrationRepository ?? ProfileRegistrationRepository(),
        _userRepository = userRepository ?? UserRepository(),
        _artisanRepository = artisanRepository ?? ArtisanRepository(),
        _requestRepository = requestRepository ?? RequestRepository(),
-       _reviewRepository = reviewRepository ?? ReviewRepository() {
+       _reviewRepository = reviewRepository ?? ReviewRepository(),
+       _notificationRepository =
+           notificationRepository ?? NotificationRepository() {
     _authSubscription = _authRepository.authStateChanges.listen(_onAuthChanged);
   }
 
   final AuthRepository _authRepository;
+  final ProfileRegistrationRepository _profileRegistrationRepository;
   final UserRepository _userRepository;
   final ArtisanRepository _artisanRepository;
   final RequestRepository _requestRepository;
   final ReviewRepository _reviewRepository;
+  final NotificationRepository _notificationRepository;
   late final StreamSubscription<User?> _authSubscription;
   StreamSubscription<AppUser?>? _userSubscription;
   AppUser? _currentUser;
@@ -52,6 +64,12 @@ class AppController extends ChangeNotifier {
   Stream<List<AppUser>> get users => _userRepository.watchUsers();
   Stream<List<Review>> reviewsForArtisan(String id) =>
       _reviewRepository.watchForArtisan(id);
+  Stream<List<AppNotification>> get notifications => _currentUser == null
+      ? Stream<List<AppNotification>>.value(const [])
+      : _notificationRepository.watchForUser(_currentUser!.id);
+  Stream<int> get unreadNotificationCount => _currentUser == null
+      ? Stream<int>.value(0)
+      : _notificationRepository.watchUnreadCount(_currentUser!.id);
 
   void _onAuthChanged(User? firebaseUser) {
     _userSubscription?.cancel();
@@ -78,8 +96,8 @@ class AppController extends ChangeNotifier {
     required String email,
     required String password,
     required UserRole role,
-    String? trade,
-    String? area,
+    ArtisanTrade? trade,
+    InterventionArea? area,
     int? startingPrice,
   }) async {
     if (role == UserRole.admin) {
@@ -91,30 +109,39 @@ class AppController extends ChangeNotifier {
     }
     final user = await _registerOrSignIn(email: email, password: password);
     final existingUser = await _userRepository.getUser(user.uid);
-    if (existingUser == null) {
-      await _userRepository.createUser(
-        id: user.uid,
-        name: name,
-        email: email,
-        role: role,
-      );
-    } else if (existingUser.role != role) {
+    if (existingUser != null && existingUser.role != role) {
       throw StateError(
         'Cette adresse e-mail est déjà utilisée par un compte ${existingUser.role.label.toLowerCase()}.',
       );
     }
+    Artisan? existingArtisan;
     if (role == UserRole.artisan) {
-      final existingArtisan = await _artisanRepository.getArtisan(user.uid);
-      if (existingArtisan == null) {
-        await _artisanRepository.createArtisanProfile(
-          id: user.uid,
-          name: name,
-          trade: trade!,
-          area: area!,
-          startingPrice: startingPrice!,
-        );
-      }
+      existingArtisan = await _artisanRepository.getArtisan(user.uid);
     }
+    await _profileRegistrationRepository.completeRegistration(
+      user: AppUser(
+        id: user.uid,
+        name: name.trim(),
+        email: email.trim(),
+        role: role,
+      ),
+      artisan: role == UserRole.artisan
+          ? Artisan(
+              id: user.uid,
+              name: name.trim(),
+              trade: trade!,
+              area: area!,
+              rating: 0,
+              reviewCount: 0,
+              startingPrice: startingPrice!,
+              verified: false,
+              availableToday: true,
+              verificationStatus: ArtisanVerificationStatus.pending,
+            )
+          : null,
+      createUser: existingUser == null,
+      createArtisan: role == UserRole.artisan && existingArtisan == null,
+    );
   }
 
   Future<User> _registerOrSignIn({
@@ -188,8 +215,8 @@ class AppController extends ChangeNotifier {
 
   Future<void> updateArtisanProfile({
     required String name,
-    required String trade,
-    required String area,
+    required ArtisanTrade trade,
+    required InterventionArea area,
     required int startingPrice,
     required bool availableToday,
   }) async {
@@ -197,9 +224,7 @@ class AppController extends ChangeNotifier {
     if (user == null || user.role != UserRole.artisan) {
       throw StateError('Seul un artisan peut modifier ce profil.');
     }
-    if (name.trim().length < 2 ||
-        trade.trim().length < 2 ||
-        area.trim().length < 2) {
+    if (name.trim().length < 2) {
       throw ArgumentError('Les informations du profil sont incomplètes.');
     }
     if (startingPrice < 0) throw ArgumentError('Le tarif est invalide.');
@@ -245,6 +270,15 @@ class AppController extends ChangeNotifier {
       rating: rating,
       comment: comment,
     );
+  }
+
+  Future<void> markNotificationAsRead(String notificationId) =>
+      _notificationRepository.markAsRead(notificationId);
+
+  Future<void> markAllNotificationsAsRead() {
+    final user = _currentUser;
+    if (user == null) throw StateError('Connexion requise.');
+    return _notificationRepository.markAllAsRead(user.id);
   }
 
   Future<void> logout() => _authRepository.signOut();

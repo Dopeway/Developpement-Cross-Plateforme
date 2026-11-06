@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:quickfix_tunisia/core/models/app_user.dart';
+import 'package:quickfix_tunisia/core/models/app_notification.dart';
 import 'package:quickfix_tunisia/core/models/artisan.dart';
+import 'package:quickfix_tunisia/core/models/artisan_catalog.dart';
 import 'package:quickfix_tunisia/core/models/intervention_request.dart';
 
 void main() {
@@ -44,8 +46,8 @@ void main() {
     const artisan = Artisan(
       id: 'artisan-1',
       name: 'Sami Ben Salem',
-      trade: 'Plomberie',
-      area: 'Tunis',
+      trade: ArtisanTrade.plumber,
+      area: InterventionArea.tunis,
       rating: 0,
       reviewCount: 0,
       startingPrice: 50,
@@ -60,5 +62,30 @@ void main() {
 
     expect(parsed.verified, isFalse);
     expect(parsed.startingPrice, 50);
+    expect(parsed.trade, ArtisanTrade.plumber);
+    expect(parsed.area, InterventionArea.tunis);
+    expect(artisan.toJson()['trade'], 'plumber');
+    expect(artisan.toJson()['area'], 'tunis');
+  });
+
+  test('lit les anciennes valeurs métier et zone pendant la migration', () {
+    expect(ArtisanTrade.fromStorageValue('Plomberie'), ArtisanTrade.plumber);
+    expect(InterventionArea.fromStorageValue('Tunis'), InterventionArea.tunis);
+  });
+
+  test('désérialise une notification persistée', () {
+    final notification = AppNotification.fromJson(const <String, Object?>{
+      'id': 'notification-1',
+      'recipientId': 'client-1',
+      'type': 'interventionCompleted',
+      'title': 'Intervention terminée',
+      'message': 'Vous pouvez maintenant donner votre avis.',
+      'isRead': false,
+      'requestId': 'request-1',
+    });
+
+    expect(notification.type, AppNotificationType.interventionCompleted);
+    expect(notification.isRead, isFalse);
+    expect(notification.requestId, 'request-1');
   });
 }

@@ -251,7 +251,7 @@ class _ArtisanReviewCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '${artisan.trade} · ${artisan.area}\nTarif indicatif : dès ${artisan.startingPrice} DT',
+              '${artisan.trade.label} · ${artisan.area.label}\nTarif indicatif : dès ${artisan.startingPrice} DT',
             ),
             const SizedBox(height: 16),
             Row(

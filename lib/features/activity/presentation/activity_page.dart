@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/models/artisan.dart';
+import '../../../core/models/artisan_catalog.dart';
 import '../../../core/models/intervention_request.dart';
 import '../../../core/state/app_scope.dart';
 import '../../../core/widgets/request_status_widgets.dart';
@@ -145,12 +146,12 @@ class _Dashboard extends StatelessWidget {
             children: [
               ListTile(
                 leading: const Icon(Icons.build_outlined),
-                title: Text(artisan.trade),
+                title: Text(artisan.trade.label),
                 subtitle: const Text('Métier'),
               ),
               ListTile(
                 leading: const Icon(Icons.location_on_outlined),
-                title: Text(artisan.area),
+                title: Text(artisan.area.label),
                 subtitle: const Text('Zone d’intervention'),
               ),
               ListTile(
@@ -250,8 +251,8 @@ class _ProfileInput {
   });
 
   final String name;
-  final String trade;
-  final String area;
+  final ArtisanTrade trade;
+  final InterventionArea area;
   final int startingPrice;
   final bool availableToday;
 }
@@ -269,12 +270,8 @@ class _ProfileDialogState extends State<_ProfileDialog> {
   late final TextEditingController _name = TextEditingController(
     text: widget.artisan.name,
   );
-  late final TextEditingController _trade = TextEditingController(
-    text: widget.artisan.trade,
-  );
-  late final TextEditingController _area = TextEditingController(
-    text: widget.artisan.area,
-  );
+  late ArtisanTrade _trade = widget.artisan.trade;
+  late InterventionArea _area = widget.artisan.area;
   late final TextEditingController _price = TextEditingController(
     text: '${widget.artisan.startingPrice}',
   );
@@ -283,8 +280,6 @@ class _ProfileDialogState extends State<_ProfileDialog> {
   @override
   void dispose() {
     _name.dispose();
-    _trade.dispose();
-    _area.dispose();
     _price.dispose();
     super.dispose();
   }
@@ -300,13 +295,31 @@ class _ProfileDialogState extends State<_ProfileDialog> {
             controller: _name,
             decoration: const InputDecoration(labelText: 'Nom affiché'),
           ),
-          TextField(
-            controller: _trade,
+          DropdownButtonFormField<ArtisanTrade>(
+            initialValue: _trade,
             decoration: const InputDecoration(labelText: 'Métier'),
+            items: ArtisanTrade.values
+                .map(
+                  (trade) =>
+                      DropdownMenuItem(value: trade, child: Text(trade.label)),
+                )
+                .toList(),
+            onChanged: (trade) {
+              if (trade != null) setState(() => _trade = trade);
+            },
           ),
-          TextField(
-            controller: _area,
+          DropdownButtonFormField<InterventionArea>(
+            initialValue: _area,
             decoration: const InputDecoration(labelText: 'Zone d’intervention'),
+            items: InterventionArea.values
+                .map(
+                  (area) =>
+                      DropdownMenuItem(value: area, child: Text(area.label)),
+                )
+                .toList(),
+            onChanged: (area) {
+              if (area != null) setState(() => _area = area);
+            },
           ),
           TextField(
             controller: _price,
@@ -332,19 +345,15 @@ class _ProfileDialogState extends State<_ProfileDialog> {
       FilledButton(
         onPressed: () {
           final price = int.tryParse(_price.text);
-          if (_name.text.trim().length < 2 ||
-              _trade.text.trim().length < 2 ||
-              _area.text.trim().length < 2 ||
-              price == null ||
-              price < 0) {
+          if (_name.text.trim().length < 2 || price == null || price < 0) {
             return;
           }
           Navigator.pop(
             context,
             _ProfileInput(
               name: _name.text,
-              trade: _trade.text,
-              area: _area.text,
+              trade: _trade,
+              area: _area,
               startingPrice: price,
               availableToday: _available,
             ),

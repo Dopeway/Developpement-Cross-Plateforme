@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_routes.dart';
 import '../../../core/models/artisan.dart';
+import '../../../core/models/artisan_catalog.dart';
 import '../../../core/state/app_scope.dart';
 
 class HomePage extends StatefulWidget {
@@ -12,7 +13,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   String _query = '';
-  String? _trade;
+  ArtisanTrade? _trade;
   bool _availableOnly = false;
 
   @override
@@ -39,8 +40,8 @@ class _HomePageState extends State<HomePage> {
       final matchesQuery =
           query.isEmpty ||
           artisan.name.toLowerCase().contains(query) ||
-          artisan.trade.toLowerCase().contains(query) ||
-          artisan.area.toLowerCase().contains(query);
+          artisan.trade.label.toLowerCase().contains(query) ||
+          artisan.area.label.toLowerCase().contains(query);
       return matchesQuery &&
           (_trade == null || artisan.trade == _trade) &&
           (!_availableOnly || artisan.availableToday);
@@ -81,7 +82,7 @@ class _HomePageState extends State<HomePage> {
             ),
             ...trades.map(
               (trade) => FilterChip(
-                label: Text(trade),
+                label: Text(trade.label),
                 selected: _trade == trade,
                 onSelected: (selected) =>
                     setState(() => _trade = selected ? trade : null),
@@ -139,7 +140,7 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
               subtitle: Text(
-                '${artisan.trade} · ${artisan.area}\n★ ${artisan.rating} (${artisan.reviewCount} avis) · dès ${artisan.startingPrice} DT',
+                '${artisan.trade.label} · ${artisan.area.label}\n★ ${artisan.rating} (${artisan.reviewCount} avis) · dès ${artisan.startingPrice} DT',
               ),
               isThreeLine: true,
               trailing: const Icon(Icons.chevron_right),

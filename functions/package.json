@@ -1,0 +1,13 @@
+{
+  "name": "quickfix-tunisia-functions",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "migrate:artisan-catalog": "node scripts/migrate_artisan_catalog.js"
+  },
+  "engines": {"node": "20"},
+  "dependencies": {
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.0.1"
+  }
+}

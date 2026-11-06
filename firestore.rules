@@ -28,6 +28,17 @@ service cloud.firestore {
           && requestHasStatus('completed'));
     }
 
+    function isSupportedTrade(trade) {
+      return trade in [
+        'plumber', 'electrician', 'air_conditioning_technician',
+        'appliance_repairer', 'locksmith', 'painter', 'carpenter'
+      ];
+    }
+
+    function isSupportedInterventionArea(area) {
+      return area in ['tunis', 'ariana', 'ben_arous', 'manouba'];
+    }
+
     match /users/{userId} {
       allow create: if isOwner(userId)
         && request.resource.data.role in ['client', 'artisan']
@@ -44,15 +55,15 @@ service cloud.firestore {
         && (resource.data.verified == true || isOwner(artisanId) || isAdmin());
       allow create: if isAdmin()
         || (isOwner(artisanId)
-          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'artisan'
+          && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'artisan'
           && request.resource.data.keys().hasOnly([
             'name', 'trade', 'area', 'rating', 'reviewCount', 'startingPrice',
             'verified', 'availableToday', 'verificationStatus',
             'rejectionReason'
           ])
           && request.resource.data.name is string
-          && request.resource.data.trade is string
-          && request.resource.data.area is string
+          && isSupportedTrade(request.resource.data.trade)
+          && isSupportedInterventionArea(request.resource.data.area)
           && request.resource.data.rating == 0
           && request.resource.data.reviewCount == 0
           && request.resource.data.startingPrice is int
@@ -67,7 +78,9 @@ service cloud.firestore {
             'name', 'trade', 'area', 'startingPrice', 'availableToday'
           ])
           && request.resource.data.verified == resource.data.verified
-          && request.resource.data.verificationStatus == resource.data.verificationStatus);
+          && request.resource.data.verificationStatus == resource.data.verificationStatus
+          && isSupportedTrade(request.resource.data.trade)
+          && isSupportedInterventionArea(request.resource.data.area));
       allow delete: if isAdmin();
     }
 
@@ -105,6 +118,14 @@ service cloud.firestore {
           'requestId', 'clientId', 'artisanId', 'rating', 'comment', 'createdAt'
         ]);
       allow update, delete: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isOwner(resource.data.recipientId) || isAdmin();
+      allow update: if isOwner(resource.data.recipientId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])
+        && request.resource.data.isRead == true;
+      allow create, delete: if false;
     }
   }
 }

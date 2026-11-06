@@ -1,3 +1,5 @@
+import 'artisan_catalog.dart';
+
 enum ArtisanVerificationStatus { pending, verified, refused, suspended }
 
 extension ArtisanVerificationStatusLabel on ArtisanVerificationStatus {
@@ -26,8 +28,8 @@ class Artisan {
   factory Artisan.fromJson(Map<String, Object?> json) => Artisan(
     id: json['id']! as String,
     name: json['name']! as String,
-    trade: json['trade']! as String,
-    area: json['area']! as String,
+    trade: ArtisanTrade.fromStorageValue(json['trade']! as String),
+    area: InterventionArea.fromStorageValue(json['area']! as String),
     rating: (json['rating']! as num).toDouble(),
     reviewCount: json['reviewCount']! as int,
     startingPrice: json['startingPrice']! as int,
@@ -49,8 +51,8 @@ class Artisan {
 
   final String id;
   final String name;
-  final String trade;
-  final String area;
+  final ArtisanTrade trade;
+  final InterventionArea area;
   final double rating;
   final int reviewCount;
   final int startingPrice;
@@ -61,8 +63,8 @@ class Artisan {
 
   Map<String, Object?> toJson() => {
     'name': name,
-    'trade': trade,
-    'area': area,
+    'trade': trade.storageValue,
+    'area': area.storageValue,
     'rating': rating,
     'reviewCount': reviewCount,
     'startingPrice': startingPrice,

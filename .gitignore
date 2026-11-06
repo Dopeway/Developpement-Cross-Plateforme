@@ -5,6 +5,7 @@ firebase-debug.log
 .packages
 .pub/
 build/
+functions/node_modules/
 
 # Tooling and local IDE files
 .idea/

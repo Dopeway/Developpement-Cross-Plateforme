@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/models/artisan.dart';
+import '../../../core/models/artisan_catalog.dart';
 
 class ArtisanRepository {
   ArtisanRepository({FirebaseFirestore? firestore})
@@ -55,8 +56,8 @@ class ArtisanRepository {
   Future<void> createArtisanProfile({
     required String id,
     required String name,
-    required String trade,
-    required String area,
+    required ArtisanTrade trade,
+    required InterventionArea area,
     required int startingPrice,
   }) => _artisans
       .doc(id)
@@ -64,8 +65,8 @@ class ArtisanRepository {
         Artisan(
           id: id,
           name: name.trim(),
-          trade: trade.trim(),
-          area: area.trim(),
+          trade: trade,
+          area: area,
           rating: 0,
           reviewCount: 0,
           startingPrice: startingPrice,
@@ -88,14 +89,14 @@ class ArtisanRepository {
   Future<void> updateProfile({
     required String id,
     required String name,
-    required String trade,
-    required String area,
+    required ArtisanTrade trade,
+    required InterventionArea area,
     required int startingPrice,
     required bool availableToday,
   }) => _artisans.doc(id).update({
     'name': name.trim(),
-    'trade': trade.trim(),
-    'area': area.trim(),
+    'trade': trade.storageValue,
+    'area': area.storageValue,
     'startingPrice': startingPrice,
     'availableToday': availableToday,
   });
