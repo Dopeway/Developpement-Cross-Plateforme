@@ -4,6 +4,7 @@ import '../../../app/app_routes.dart';
 import '../../../core/models/artisan.dart';
 import '../../../core/models/artisan_catalog.dart';
 import '../../../core/state/app_scope.dart';
+import '../../../core/widgets/request_status_widgets.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -22,8 +23,9 @@ class _HomePageState extends State<HomePage> {
       stream: AppScope.of(context).artisans,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return const Center(
-            child: Text('Impossible de charger les artisans.'),
+          return ErrorStateView(
+            message: 'Impossible de charger les artisans.',
+            onRetry: () => setState(() {}),
           );
         }
         if (!snapshot.hasData) {
@@ -48,22 +50,46 @@ class _HomePageState extends State<HomePage> {
     }).toList();
     final trades = allArtisans.map((artisan) => artisan.trade).toSet().toList();
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
       children: [
-        Text(
-          'Un souci à la maison ?',
-          style: Theme.of(context).textTheme.headlineMedium,
-        ),
-        const SizedBox(height: 6),
-        const Text('Trouvez un professionnel vérifié près de chez vous.'),
-        const SizedBox(height: 20),
-        SearchBar(
-          hintText: 'Quel service recherchez-vous ?',
-          leading: const Icon(Icons.search),
-          padding: const WidgetStatePropertyAll(
-            EdgeInsets.symmetric(horizontal: 16),
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(24),
           ),
-          onChanged: (value) => setState(() => _query = value),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Un souci à la maison ?',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Trouvez un professionnel vérifié près de chez vous.',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(height: 20),
+              SearchBar(
+                hintText: 'Quel service recherchez-vous ?',
+                leading: const Icon(Icons.search),
+                padding: const WidgetStatePropertyAll(
+                  EdgeInsets.symmetric(horizontal: 16),
+                ),
+                elevation: const WidgetStatePropertyAll(0),
+                backgroundColor: WidgetStatePropertyAll(
+                  Theme.of(context).colorScheme.surface,
+                ),
+                onChanged: (value) => setState(() => _query = value),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 24),
         Text(
@@ -116,25 +142,47 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
         if (artisans.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 32),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 32),
             child: Center(
-              child: Text('Aucun artisan ne correspond à votre recherche.'),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Aucun artisan ne correspond à votre recherche.'),
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    onPressed: () => setState(() {
+                      _query = '';
+                      _trade = null;
+                      _availableOnly = false;
+                    }),
+                    child: const Text('Réinitialiser les filtres'),
+                  ),
+                ],
+              ),
             ),
           ),
         ...artisans.map(
           (artisan) => Card(
             child: ListTile(
               key: ValueKey(artisan.name),
-              contentPadding: const EdgeInsets.all(14),
-              leading: CircleAvatar(child: Text(artisan.name.substring(0, 1))),
+              contentPadding: const EdgeInsets.all(16),
+              leading: CircleAvatar(
+                backgroundColor: Theme.of(context)
+                    .colorScheme
+                    .secondaryContainer,
+                foregroundColor: Theme.of(context)
+                    .colorScheme
+                    .onSecondaryContainer,
+                child: Text(artisan.name.substring(0, 1)),
+              ),
               title: Row(
                 children: [
                   Expanded(child: Text(artisan.name)),
                   if (artisan.verified)
-                    const Icon(
+                    Icon(
                       Icons.verified,
-                      color: Color(0xFF0B6B58),
+                      color: Theme.of(context).colorScheme.primary,
                       semanticLabel: 'Profil vérifié',
                     ),
                 ],

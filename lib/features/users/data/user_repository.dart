@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/models/app_user.dart';
+import '../../../core/models/saved_address.dart';
 
 class UserRepository {
   UserRepository({FirebaseFirestore? firestore})
@@ -49,4 +50,29 @@ class UserRepository {
 
   Future<void> updateProfile(AppUser user) =>
       _users.doc(user.id).update({'name': user.name});
+
+  Stream<List<SavedAddress>> watchAddresses(String userId) => _users
+      .doc(userId)
+      .collection('addresses')
+      .orderBy('createdAt', descending: true)
+      .snapshots()
+      .map(
+        (snapshot) => snapshot.docs
+            .map(
+              (document) => SavedAddress.fromJson(<String, Object?>{
+                'id': document.id,
+                ...document.data(),
+              }),
+            )
+            .toList(),
+      );
+
+  Future<void> addAddress(String userId, String value) =>
+      _users.doc(userId).collection('addresses').add(<String, Object?>{
+        'value': value.trim(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+  Future<void> deleteAddress(String userId, String addressId) =>
+      _users.doc(userId).collection('addresses').doc(addressId).delete();
 }

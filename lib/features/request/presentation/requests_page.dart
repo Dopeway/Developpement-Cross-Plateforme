@@ -22,8 +22,9 @@ class _RequestsPageState extends State<RequestsPage> {
       stream: AppScope.of(context).requests,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return const Center(
-            child: Text('Impossible de charger les demandes.'),
+          return ErrorStateView(
+            message: 'Impossible de charger les demandes.',
+            onRetry: () => setState(() {}),
           );
         }
         if (!snapshot.hasData) {
@@ -134,8 +135,6 @@ class _RequestsPageState extends State<RequestsPage> {
                 Icon(Icons.chevron_right),
               ],
             ),
-            const SizedBox(height: 16),
-            RequestTimeline(status: request.status),
             if (role == UserRole.client &&
                 request.status == RequestStatus.pending)
               Align(
@@ -245,6 +244,7 @@ class _ReviewDialog extends StatefulWidget {
 }
 
 class _ReviewDialogState extends State<_ReviewDialog> {
+  final _formKey = GlobalKey<FormState>();
   final _controller = TextEditingController();
   int _rating = 5;
 
@@ -257,31 +257,39 @@ class _ReviewDialogState extends State<_ReviewDialog> {
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: const Text('Votre avis'),
-    content: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SegmentedButton<int>(
-          segments: const [
-            ButtonSegment(value: 1, label: Text('1')),
-            ButtonSegment(value: 2, label: Text('2')),
-            ButtonSegment(value: 3, label: Text('3')),
-            ButtonSegment(value: 4, label: Text('4')),
-            ButtonSegment(value: 5, label: Text('5')),
-          ],
-          selected: {_rating},
-          onSelectionChanged: (value) => setState(() => _rating = value.first),
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _controller,
-          minLines: 2,
-          maxLines: 4,
-          decoration: const InputDecoration(
-            labelText: 'Votre commentaire',
-            hintText: 'Partagez votre expérience.',
+    content: Form(
+      key: _formKey,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SegmentedButton<int>(
+            segments: const [
+              ButtonSegment(value: 1, label: Text('1')),
+              ButtonSegment(value: 2, label: Text('2')),
+              ButtonSegment(value: 3, label: Text('3')),
+              ButtonSegment(value: 4, label: Text('4')),
+              ButtonSegment(value: 5, label: Text('5')),
+            ],
+            selected: {_rating},
+            onSelectionChanged: (value) =>
+                setState(() => _rating = value.first),
           ),
-        ),
-      ],
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _controller,
+            minLines: 2,
+            maxLines: 4,
+            maxLength: 500,
+            decoration: const InputDecoration(
+              labelText: 'Votre commentaire',
+              hintText: 'Partagez votre expérience.',
+            ),
+            validator: (value) => value == null || value.trim().isEmpty
+                ? 'Ajoutez un commentaire pour publier votre avis.'
+                : null,
+          ),
+        ],
+      ),
     ),
     actions: [
       TextButton(
@@ -290,7 +298,7 @@ class _ReviewDialogState extends State<_ReviewDialog> {
       ),
       FilledButton(
         onPressed: () {
-          if (_controller.text.trim().isEmpty) return;
+          if (!_formKey.currentState!.validate()) return;
           Navigator.pop(context, _ReviewInput(_rating, _controller.text));
         },
         child: const Text('Publier'),

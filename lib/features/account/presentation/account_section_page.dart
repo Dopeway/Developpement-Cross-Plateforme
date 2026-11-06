@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/state/app_scope.dart';
+import '../../../core/widgets/request_status_widgets.dart';
 
 enum AccountSection { personal, addresses, help }
 
@@ -124,8 +125,6 @@ class _AddressesPage extends StatefulWidget {
 }
 
 class _AddressesPageState extends State<_AddressesPage> {
-  final List<String> _addresses = <String>[];
-
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Mes adresses')),
@@ -134,31 +133,50 @@ class _AddressesPageState extends State<_AddressesPage> {
       icon: const Icon(Icons.add),
       label: const Text('Ajouter'),
     ),
-    body: _addresses.isEmpty
-        ? const Center(
+    body: StreamBuilder(
+      stream: AppScope.of(context).savedAddresses,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return ErrorStateView(
+            message: 'Impossible de charger vos adresses.',
+            onRetry: () => setState(() {}),
+          );
+        }
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final addresses = snapshot.data!;
+        if (addresses.isEmpty) {
+          return const Center(
             child: Padding(
               padding: EdgeInsets.all(32),
               child: Text(
-                'Aucune adresse enregistrée. Ajoutez une adresse pour remplir vos prochaines demandes plus rapidement.',
+                'Aucune adresse enregistrée. Ajoutez-en une pour remplir vos prochaines demandes plus rapidement.',
                 textAlign: TextAlign.center,
               ),
             ),
-          )
-        : ListView.builder(
-            padding: const EdgeInsets.all(20),
-            itemCount: _addresses.length,
-            itemBuilder: (context, index) => Card(
+          );
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.all(20),
+          itemCount: addresses.length,
+          itemBuilder: (context, index) {
+            final address = addresses[index];
+            return Card(
               child: ListTile(
                 leading: const Icon(Icons.location_on_outlined),
-                title: Text(_addresses[index]),
+                title: Text(address.value),
                 trailing: IconButton(
                   tooltip: 'Supprimer',
-                  onPressed: () => setState(() => _addresses.removeAt(index)),
+                  onPressed: () => _deleteAddress(address.id, address.value),
                   icon: const Icon(Icons.delete_outline),
                 ),
               ),
-            ),
-          ),
+            );
+          },
+        );
+      },
+    ),
   );
 
   Future<void> _addAddress() async {
@@ -171,6 +189,7 @@ class _AddressesPageState extends State<_AddressesPage> {
           controller: controller,
           autofocus: true,
           maxLines: 2,
+          maxLength: 200,
           decoration: const InputDecoration(
             labelText: 'Adresse',
             hintText: 'Ex. 12 rue des Jasmins, Tunis',
@@ -189,8 +208,56 @@ class _AddressesPageState extends State<_AddressesPage> {
       ),
     );
     controller.dispose();
-    if (address == null || address.isEmpty || !mounted) return;
-    setState(() => _addresses.add(address));
+    if (address == null || !mounted) return;
+    try {
+      await AppScope.of(context).addSavedAddress(address);
+    } on ArgumentError catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.message?.toString() ?? 'Adresse invalide.'),
+          ),
+        );
+      }
+    } on Exception {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('L’adresse n’a pas pu être enregistrée.'),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteAddress(String id, String value) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer cette adresse ?'),
+        content: Text(value),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Conserver'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await AppScope.of(context).deleteSavedAddress(id);
+    } on Exception {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('L’adresse n’a pas pu être supprimée.')),
+        );
+      }
+    }
   }
 }
 

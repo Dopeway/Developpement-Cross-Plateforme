@@ -7,9 +7,14 @@ import '../../../core/state/app_scope.dart';
 import '../../../core/widgets/request_status_widgets.dart';
 import 'missing_artisan_profile.dart';
 
-class ActivityPage extends StatelessWidget {
+class ActivityPage extends StatefulWidget {
   const ActivityPage({super.key});
 
+  @override
+  State<ActivityPage> createState() => _ActivityPageState();
+}
+
+class _ActivityPageState extends State<ActivityPage> {
   @override
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
@@ -17,8 +22,9 @@ class ActivityPage extends StatelessWidget {
       stream: controller.artisanProfile,
       builder: (context, artisanSnapshot) {
         if (artisanSnapshot.hasError) {
-          return const Center(
-            child: Text('Impossible de charger votre profil.'),
+          return ErrorStateView(
+            message: 'Impossible de charger votre profil.',
+            onRetry: () => setState(() {}),
           );
         }
         if (artisanSnapshot.connectionState == ConnectionState.waiting) {
@@ -32,8 +38,9 @@ class ActivityPage extends StatelessWidget {
           stream: controller.requests,
           builder: (context, requestSnapshot) {
             if (requestSnapshot.hasError) {
-              return const Center(
-                child: Text('Impossible de charger les interventions.'),
+              return ErrorStateView(
+                message: 'Impossible de charger les interventions.',
+                onRetry: () => setState(() {}),
               );
             }
             if (!requestSnapshot.hasData) {
@@ -266,6 +273,7 @@ class _ProfileDialog extends StatefulWidget {
 }
 
 class _ProfileDialogState extends State<_ProfileDialog> {
+  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _name = TextEditingController(
     text: widget.artisan.name,
   );
@@ -286,54 +294,70 @@ class _ProfileDialogState extends State<_ProfileDialog> {
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: const Text('Modifier le profil'),
-    content: SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _name,
-            decoration: const InputDecoration(labelText: 'Nom affiché'),
-          ),
-          DropdownButtonFormField<ArtisanTrade>(
-            initialValue: _trade,
-            decoration: const InputDecoration(labelText: 'Métier'),
-            items: ArtisanTrade.values
-                .map(
-                  (trade) =>
-                      DropdownMenuItem(value: trade, child: Text(trade.label)),
-                )
-                .toList(),
-            onChanged: (trade) {
-              if (trade != null) setState(() => _trade = trade);
-            },
-          ),
-          DropdownButtonFormField<InterventionArea>(
-            initialValue: _area,
-            decoration: const InputDecoration(labelText: 'Zone d’intervention'),
-            items: InterventionArea.values
-                .map(
-                  (area) =>
-                      DropdownMenuItem(value: area, child: Text(area.label)),
-                )
-                .toList(),
-            onChanged: (area) {
-              if (area != null) setState(() => _area = area);
-            },
-          ),
-          TextField(
-            controller: _price,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Tarif de départ (DT)',
+    content: Form(
+      key: _formKey,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _name,
+              decoration: const InputDecoration(labelText: 'Nom affiché'),
+              validator: (value) => value == null || value.trim().length < 2
+                  ? 'Indiquez un nom d’au moins 2 caractères.'
+                  : null,
             ),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Disponible aujourd’hui'),
-            value: _available,
-            onChanged: (value) => setState(() => _available = value),
-          ),
-        ],
+            DropdownButtonFormField<ArtisanTrade>(
+              initialValue: _trade,
+              decoration: const InputDecoration(labelText: 'Métier'),
+              items: ArtisanTrade.values
+                  .map(
+                    (trade) => DropdownMenuItem(
+                      value: trade,
+                      child: Text(trade.label),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (trade) {
+                if (trade != null) setState(() => _trade = trade);
+              },
+            ),
+            DropdownButtonFormField<InterventionArea>(
+              initialValue: _area,
+              decoration: const InputDecoration(
+                labelText: 'Zone d’intervention',
+              ),
+              items: InterventionArea.values
+                  .map(
+                    (area) =>
+                        DropdownMenuItem(value: area, child: Text(area.label)),
+                  )
+                  .toList(),
+              onChanged: (area) {
+                if (area != null) setState(() => _area = area);
+              },
+            ),
+            TextFormField(
+              controller: _price,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Tarif de départ (DT)',
+              ),
+              validator: (value) {
+                final price = int.tryParse(value ?? '');
+                return price == null || price < 0
+                    ? 'Indiquez un tarif valide.'
+                    : null;
+              },
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Disponible aujourd’hui'),
+              value: _available,
+              onChanged: (value) => setState(() => _available = value),
+            ),
+          ],
+        ),
       ),
     ),
     actions: [
@@ -343,10 +367,8 @@ class _ProfileDialogState extends State<_ProfileDialog> {
       ),
       FilledButton(
         onPressed: () {
-          final price = int.tryParse(_price.text);
-          if (_name.text.trim().length < 2 || price == null || price < 0) {
-            return;
-          }
+          if (!_formKey.currentState!.validate()) return;
+          final price = int.parse(_price.text);
           Navigator.pop(
             context,
             _ProfileInput(

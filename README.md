@@ -12,6 +12,8 @@ Le cycle normal d’une demande est `pending` → `accepted` → `inProgress` �
 
 Le chat est disponible uniquement au client et à l’artisan concerné, après acceptation et pendant l’intervention. Il permet de préciser l’accès, l’horaire ou le besoin ; il est fermé lorsque l’intervention est terminée, refusée ou annulée.
 
+Les clients peuvent enregistrer des adresses dans leur compte. Elles sont stockées dans `users/{uid}/addresses` et peuvent préremplir une nouvelle demande. L’apparence suit automatiquement le réglage clair ou sombre de l’appareil.
+
 ## Prérequis
 
 - Flutter et Dart stables ;

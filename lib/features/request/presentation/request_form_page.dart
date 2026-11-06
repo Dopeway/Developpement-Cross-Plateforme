@@ -85,6 +85,9 @@ class _RequestFormPageState extends State<RequestFormPage> {
             TextFormField(
               controller: _addressController,
               keyboardType: TextInputType.streetAddress,
+              textCapitalization: TextCapitalization.words,
+              autofillHints: const [AutofillHints.streetAddressLine1],
+              maxLength: 200,
               decoration: const InputDecoration(
                 labelText: 'Adresse d’intervention',
                 hintText: 'Ex. 12 rue des Jasmins, El Menzah',
@@ -92,6 +95,35 @@ class _RequestFormPageState extends State<RequestFormPage> {
               validator: (value) => value == null || value.trim().isEmpty
                   ? 'Indiquez une adresse.'
                   : null,
+            ),
+            StreamBuilder(
+              stream: AppScope.of(context).savedAddresses,
+              builder: (context, snapshot) {
+                final addresses = snapshot.data ?? const [];
+                if (addresses.isEmpty) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                      labelText: 'Utiliser une adresse enregistrée',
+                    ),
+                    items: addresses
+                        .map(
+                          (address) => DropdownMenuItem(
+                            value: address.value,
+                            child: Text(
+                              address.value,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) _addressController.text = value;
+                    },
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(

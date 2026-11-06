@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/models/app_user.dart';
 import '../../../core/state/app_scope.dart';
+import '../../../app/app_routes.dart';
 import '../../account/presentation/account_page.dart';
 import '../../activity/presentation/activity_page.dart';
 import '../../admin/presentation/admin_page.dart';
@@ -116,7 +117,13 @@ class _AppShellState extends State<AppShell> {
               ),
             ],
           ),
-          body: const NotificationsPage(),
+          body: NotificationsPage(
+            onOpenRequest: (request) {
+              Navigator.pop(sheetContext);
+              Navigator.of(context)
+                  .pushNamed(AppRoutes.requestDetails, arguments: request);
+            },
+          ),
         ),
       ),
     );

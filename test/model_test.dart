@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:quickfix_tunisia/core/models/app_user.dart';
 import 'package:quickfix_tunisia/core/models/app_notification.dart';
@@ -5,8 +6,47 @@ import 'package:quickfix_tunisia/core/models/artisan.dart';
 import 'package:quickfix_tunisia/core/models/artisan_catalog.dart';
 import 'package:quickfix_tunisia/core/models/chat_message.dart';
 import 'package:quickfix_tunisia/core/models/intervention_request.dart';
+import 'package:quickfix_tunisia/features/request/data/request_repository.dart';
 
 void main() {
+  test('trie les demandes datées avant les demandes historiques', () {
+    final requests = <InterventionRequest>[
+      _request(id: 'legacy'),
+      _request(id: 'older', createdAt: DateTime(2026, 11, 5)),
+      _request(id: 'newer', createdAt: DateTime(2026, 11, 6)),
+    ];
+
+    RequestRepository.sortByNewest(requests);
+
+    expect(requests.map((request) => request.id), ['newer', 'older', 'legacy']);
+  });
+
+  test('désérialise la date et la correction administrative d’une demande', () {
+    final request = InterventionRequest.fromJson(<String, Object?>{
+      'id': 'request-1',
+      'service': 'Plomberie',
+      'artisanId': 'artisan-1',
+      'artisanName': 'Mehdi Artisan',
+      'clientId': 'client-1',
+      'clientName': 'Amira Cliente',
+      'description': 'Fuite sous l’évier.',
+      'address': 'Menzah 5',
+      'date': 'Demain · 09:00',
+      'status': 'completed',
+      'createdAt': Timestamp.fromDate(DateTime(2026, 11, 6)),
+      'adminCorrection': <String, Object?>{
+        'previousStatus': 'inProgress',
+        'reason': 'Correction après vérification du support.',
+        'correctedBy': 'admin-1',
+        'correctedAt': Timestamp.fromDate(DateTime(2026, 11, 6)),
+      },
+    });
+
+    expect(request.createdAt, DateTime(2026, 11, 6));
+    expect(request.adminCorrection?.previousStatus, RequestStatus.inProgress);
+    expect(request.adminCorrection?.correctedBy, 'admin-1');
+  });
+
   test('désérialise une demande Firestore', () {
     final request = InterventionRequest.fromJson(const <String, Object?>{
       'id': 'request-1',
@@ -114,3 +154,18 @@ void main() {
     expect(message.createdAt, DateTime(2026, 11, 6, 16));
   });
 }
+
+InterventionRequest _request({required String id, DateTime? createdAt}) =>
+    InterventionRequest(
+      id: id,
+      service: 'Plomberie',
+      artisanId: 'artisan-1',
+      artisanName: 'Sami',
+      clientId: 'client-1',
+      clientName: 'Amira',
+      description: 'Fuite sous évier.',
+      address: 'Tunis',
+      date: 'Demain',
+      status: RequestStatus.pending,
+      createdAt: createdAt,
+    );

@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 enum RequestStatus {
   pending,
   accepted,
@@ -54,20 +56,35 @@ class InterventionRequest {
     required this.address,
     required this.date,
     required this.status,
+    this.createdAt,
+    this.adminCorrection,
   });
-  factory InterventionRequest.fromJson(Map<String, Object?> json) =>
-      InterventionRequest(
-        id: json['id']! as String,
-        service: json['service']! as String,
-        artisanId: json['artisanId']! as String,
-        artisanName: json['artisanName']! as String,
-        clientId: json['clientId']! as String,
-        clientName: json['clientName']! as String,
-        description: json['description']! as String,
-        address: json['address']! as String,
-        date: json['date']! as String,
-        status: RequestStatus.values.byName(json['status']! as String),
-      );
+  factory InterventionRequest.fromJson(Map<String, Object?> json) {
+    final createdAtValue = json['createdAt'];
+    final correctionValue = json['adminCorrection'];
+    return InterventionRequest(
+      id: json['id']! as String,
+      service: json['service']! as String,
+      artisanId: json['artisanId']! as String,
+      artisanName: json['artisanName']! as String,
+      clientId: json['clientId']! as String,
+      clientName: json['clientName']! as String,
+      description: json['description']! as String,
+      address: json['address']! as String,
+      date: json['date']! as String,
+      status: RequestStatus.values.byName(json['status']! as String),
+      createdAt: switch (createdAtValue) {
+        Timestamp timestamp => timestamp.toDate(),
+        DateTime dateTime => dateTime,
+        _ => null,
+      },
+      adminCorrection: correctionValue is Map<String, dynamic>
+          ? AdminStatusCorrection.fromJson(correctionValue)
+          : correctionValue is Map<String, Object?>
+          ? AdminStatusCorrection.fromJson(correctionValue)
+          : null,
+    );
+  }
   final String id;
   final String service;
   final String artisanId;
@@ -78,6 +95,8 @@ class InterventionRequest {
   final String address;
   final String date;
   final RequestStatus status;
+  final DateTime? createdAt;
+  final AdminStatusCorrection? adminCorrection;
 
   InterventionRequest copyWith({RequestStatus? status}) => InterventionRequest(
     id: id,
@@ -90,6 +109,8 @@ class InterventionRequest {
     address: address,
     date: date,
     status: status ?? this.status,
+    createdAt: createdAt,
+    adminCorrection: adminCorrection,
   );
 
   Map<String, Object> toJson() => {
@@ -102,5 +123,44 @@ class InterventionRequest {
     'address': address,
     'date': date,
     'status': status.name,
+    if (createdAt != null) 'createdAt': Timestamp.fromDate(createdAt!),
+    if (adminCorrection != null) 'adminCorrection': adminCorrection!.toJson(),
+  };
+}
+
+class AdminStatusCorrection {
+  const AdminStatusCorrection({
+    required this.previousStatus,
+    required this.reason,
+    required this.correctedBy,
+    required this.correctedAt,
+  });
+
+  factory AdminStatusCorrection.fromJson(Map<String, Object?> json) {
+    final correctedAtValue = json['correctedAt'];
+    return AdminStatusCorrection(
+      previousStatus: RequestStatus.values.byName(
+        json['previousStatus']! as String,
+      ),
+      reason: json['reason']! as String,
+      correctedBy: json['correctedBy']! as String,
+      correctedAt: switch (correctedAtValue) {
+        Timestamp timestamp => timestamp.toDate(),
+        DateTime dateTime => dateTime,
+        _ => null,
+      },
+    );
+  }
+
+  final RequestStatus previousStatus;
+  final String reason;
+  final String correctedBy;
+  final DateTime? correctedAt;
+
+  Map<String, Object> toJson() => {
+    'previousStatus': previousStatus.name,
+    'reason': reason,
+    'correctedBy': correctedBy,
+    if (correctedAt != null) 'correctedAt': Timestamp.fromDate(correctedAt!),
   };
 }

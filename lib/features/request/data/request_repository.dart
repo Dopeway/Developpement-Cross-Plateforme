@@ -18,18 +18,32 @@ class RequestRepository {
       UserRole.artisan => _requests.where('artisanId', isEqualTo: user.id),
       UserRole.admin => _requests,
     };
-    return query.snapshots().map(
-      (snapshot) =>
-          snapshot.docs
-              .map(
-                (doc) => InterventionRequest.fromJson(<String, Object?>{
-                  'id': doc.id,
-                  ...doc.data(),
-                }),
-              )
-              .toList()
-            ..sort((a, b) => b.id.compareTo(a.id)),
-    );
+    return query.snapshots().map((snapshot) {
+      final requests = snapshot.docs
+          .map(
+            (doc) => InterventionRequest.fromJson(<String, Object?>{
+              'id': doc.id,
+              ...doc.data(),
+            }),
+          )
+          .toList();
+      sortByNewest(requests);
+      return requests;
+    });
+  }
+
+  /// Keeps old requests visible until the dataset is migrated to `createdAt`.
+  static void sortByNewest(List<InterventionRequest> requests) {
+    requests.sort((left, right) {
+      final leftDate = left.createdAt;
+      final rightDate = right.createdAt;
+      if (leftDate == null && rightDate == null) {
+        return right.id.compareTo(left.id);
+      }
+      if (leftDate == null) return 1;
+      if (rightDate == null) return -1;
+      return rightDate.compareTo(leftDate);
+    });
   }
 
   Future<void> create({
@@ -55,6 +69,22 @@ class RequestRepository {
     required String id,
     required RequestStatus status,
   }) => _requests.doc(id).update({'status': status.name});
+
+  Future<void> correctStatus({
+    required String id,
+    required RequestStatus status,
+    required RequestStatus previousStatus,
+    required String reason,
+    required String correctedBy,
+  }) => _requests.doc(id).update(<String, Object?>{
+    'status': status.name,
+    'adminCorrection': <String, Object?>{
+      'previousStatus': previousStatus.name,
+      'reason': reason.trim(),
+      'correctedBy': correctedBy,
+      'correctedAt': FieldValue.serverTimestamp(),
+    },
+  });
 
   Future<InterventionRequest?> get(String id) async {
     final document = await _requests.doc(id).get();

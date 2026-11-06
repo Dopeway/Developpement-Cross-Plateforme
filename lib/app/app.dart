@@ -29,7 +29,9 @@ class _QuickFixAppState extends State<QuickFixApp> {
     child: MaterialApp(
       title: 'QuickFix Tunisia',
       debugShowCheckedModeBanner: false,
-      theme: buildAppTheme(),
+      theme: buildAppTheme(brightness: Brightness.light),
+      darkTheme: buildAppTheme(brightness: Brightness.dark),
+      themeMode: ThemeMode.system,
       home: const _AppGate(),
       onGenerateRoute: AppRoutes.onGenerateRoute,
     ),

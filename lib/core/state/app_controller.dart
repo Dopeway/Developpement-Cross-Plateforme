@@ -18,6 +18,7 @@ import '../models/artisan_catalog.dart';
 import '../models/chat_message.dart';
 import '../models/intervention_request.dart';
 import '../models/review.dart';
+import '../models/saved_address.dart';
 
 class AppController extends ChangeNotifier {
   AppController({
@@ -72,6 +73,9 @@ class AppController extends ChangeNotifier {
   }
 
   Stream<List<AppUser>> get users => _userRepository.watchUsers();
+  Stream<List<SavedAddress>> get savedAddresses => _currentUser == null
+      ? Stream<List<SavedAddress>>.value(const [])
+      : _userRepository.watchAddresses(_currentUser!.id);
   Stream<List<Review>> reviewsForArtisan(String id) =>
       _reviewRepository.watchForArtisan(id);
   Stream<List<AppNotification>> get notifications => _currentUser == null
@@ -207,6 +211,31 @@ class AppController extends ChangeNotifier {
     await _requestRepository.updateStatus(id: id, status: status);
   }
 
+  Future<void> correctRequestStatus({
+    required InterventionRequest request,
+    required RequestStatus status,
+    required String reason,
+  }) async {
+    final user = _currentUser;
+    final normalizedReason = reason.trim();
+    if (user == null || user.role != UserRole.admin) {
+      throw StateError('Seul un administrateur peut corriger une demande.');
+    }
+    if (normalizedReason.length < 10 || normalizedReason.length > 280) {
+      throw ArgumentError('Le motif doit contenir entre 10 et 280 caractères.');
+    }
+    await _requestRepository.correctStatus(
+      id: request.id,
+      status: status,
+      previousStatus: request.status,
+      reason: normalizedReason,
+      correctedBy: user.id,
+    );
+  }
+
+  Future<InterventionRequest?> getRequest(String id) =>
+      _requestRepository.get(id);
+
   Future<void> sendChatMessage({
     required InterventionRequest request,
     required String content,
@@ -307,6 +336,26 @@ class AppController extends ChangeNotifier {
       throw ArgumentError('Le nom est invalide.');
     }
     await _userRepository.updateProfile(user.copyWith(name: name.trim()));
+  }
+
+  Future<void> addSavedAddress(String value) async {
+    final user = _currentUser;
+    final normalizedValue = value.trim();
+    if (user == null || user.role != UserRole.client) {
+      throw StateError('Seul un client peut enregistrer une adresse.');
+    }
+    if (normalizedValue.length < 5 || normalizedValue.length > 200) {
+      throw ArgumentError('Indiquez une adresse entre 5 et 200 caractères.');
+    }
+    await _userRepository.addAddress(user.id, normalizedValue);
+  }
+
+  Future<void> deleteSavedAddress(String addressId) async {
+    final user = _currentUser;
+    if (user == null || user.role != UserRole.client) {
+      throw StateError('Seul un client peut supprimer une adresse.');
+    }
+    await _userRepository.deleteAddress(user.id, addressId);
   }
 
   Future<void> createReview({

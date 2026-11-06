@@ -19,6 +19,7 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   String? _error;
   bool _isSubmitting = false;
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -54,53 +55,103 @@ class _LoginPageState extends State<LoginPage> {
     body: SafeArea(
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
+          constraints: const BoxConstraints(maxWidth: 460),
           child: ListView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
             children: [
-              const SizedBox(height: 36),
-              Icon(
-                Icons.handyman_outlined,
-                size: 48,
-                color: Theme.of(context).colorScheme.primary,
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.handyman_rounded,
+                      size: 44,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'QuickFix Tunisia',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Un dépannage fiable, au bon moment.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 28),
               Text(
-                'QuickFix Tunisia',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineMedium,
+                'Bon retour parmi nous',
+                style: Theme.of(context).textTheme.headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 8),
               const Text(
                 'Connectez-vous pour retrouver vos demandes ou votre espace professionnel.',
-                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 32),
-              Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
-                        labelText: 'Adresse e-mail',
-                        hintText: 'vous@exemple.tn',
+              const SizedBox(height: 24),
+              Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Form(
+                    key: _formKey,
+                    child: AutofillGroup(
+                      child: Column(
+                        children: [
+                          TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            autofillHints: const [AutofillHints.username],
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Adresse e-mail',
+                              hintText: 'vous@exemple.tn',
+                              prefixIcon: Icon(Icons.mail_outline),
+                            ),
+                            validator: _emailValidator,
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            autofillHints: const [AutofillHints.password],
+                            textInputAction: TextInputAction.done,
+                            onFieldSubmitted: (_) => _login(),
+                            decoration: InputDecoration(
+                              labelText: 'Mot de passe',
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              suffixIcon: IconButton(
+                                tooltip: _obscurePassword
+                                    ? 'Afficher le mot de passe'
+                                    : 'Masquer le mot de passe',
+                                onPressed: () => setState(
+                                  () => _obscurePassword = !_obscurePassword,
+                                ),
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                ),
+                              ),
+                            ),
+                            validator: (value) => value == null || value.isEmpty
+                                ? 'Indiquez votre mot de passe.'
+                                : null,
+                          ),
+                        ],
                       ),
-                      validator: _emailValidator,
                     ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Mot de passe',
-                      ),
-                      validator: (value) => value == null || value.isEmpty
-                          ? 'Indiquez votre mot de passe.'
-                          : null,
-                    ),
-                  ],
+                  ),
                 ),
               ),
               if (_error != null) ...[

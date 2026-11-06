@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/models/app_notification.dart';
+import '../../../core/models/intervention_request.dart';
 import '../../../core/state/app_scope.dart';
+import '../../../core/widgets/request_status_widgets.dart';
 
 class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({super.key});
+  const NotificationsPage({super.key, this.onOpenRequest});
+
+  final void Function(InterventionRequest request)? onOpenRequest;
 
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
@@ -20,9 +24,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
       stream: controller.notifications,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return const _NotificationState(
-            icon: Icons.cloud_off_outlined,
+          return ErrorStateView(
             message: 'Les notifications sont momentanément indisponibles.',
+            onRetry: () => setState(() {}),
           );
         }
         if (!snapshot.hasData) {
@@ -70,7 +74,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             final notification = notifications[index - 1];
             return _NotificationCard(
               notification: notification,
-              onTap: () => _markAsRead(notification),
+              onTap: () => _openNotification(notification),
             );
           },
         );
@@ -91,6 +95,23 @@ class _NotificationsPageState extends State<NotificationsPage> {
         );
       }
     }
+  }
+
+  Future<void> _openNotification(AppNotification notification) async {
+    await _markAsRead(notification);
+    final requestId = notification.requestId;
+    if (requestId == null || widget.onOpenRequest == null || !mounted) return;
+    final request = await AppScope.of(context).getRequest(requestId);
+    if (!mounted) return;
+    if (request == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('La demande associée n’est plus disponible.'),
+        ),
+      );
+      return;
+    }
+    widget.onOpenRequest!(request);
   }
 
   Future<void> _markAllAsRead() async {

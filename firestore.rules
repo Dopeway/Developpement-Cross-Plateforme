@@ -48,6 +48,17 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']))
         || isAdmin();
       allow delete: if isAdmin();
+
+      match /addresses/{addressId} {
+        allow read, delete: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.keys().hasOnly(['value', 'createdAt'])
+          && request.resource.data.value is string
+          && request.resource.data.value.size() >= 5
+          && request.resource.data.value.size() <= 200
+          && request.resource.data.createdAt == request.time;
+        allow update: if false;
+      }
     }
 
     match /artisans/{artisanId} {

@@ -127,16 +127,20 @@ class AsyncStateView extends StatelessWidget {
     required this.snapshot,
     required this.builder,
     this.empty,
+    this.errorMessage = 'Impossible de charger les données.',
+    this.onRetry,
   });
 
   final AsyncSnapshot<Object?> snapshot;
   final Widget Function() builder;
   final Widget? empty;
+  final String errorMessage;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
     if (snapshot.hasError) {
-      return const Center(child: Text('Impossible de charger ces données.'));
+      return ErrorStateView(message: errorMessage, onRetry: onRetry);
     }
     if (snapshot.connectionState == ConnectionState.waiting &&
         !snapshot.hasData) {
@@ -145,4 +149,34 @@ class AsyncStateView extends StatelessWidget {
     if (snapshot.hasData) return builder();
     return empty ?? const SizedBox.shrink();
   }
+}
+
+class ErrorStateView extends StatelessWidget {
+  const ErrorStateView({super.key, required this.message, this.onRetry});
+
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.cloud_off_outlined, size: 40),
+          const SizedBox(height: 12),
+          Text(message, textAlign: TextAlign.center),
+          if (onRetry != null) ...[
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Réessayer'),
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
 }
