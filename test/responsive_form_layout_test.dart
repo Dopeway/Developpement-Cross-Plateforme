@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:quickfix_tunisia/core/widgets/responsive_form_layout.dart';
+import 'package:quickfix_tunisia/core/widgets/responsive_page_layout.dart';
 
 void main() {
   testWidgets('limite la largeur du contenu sur un grand écran', (
@@ -87,5 +88,25 @@ void main() {
     );
 
     expect(find.byType(ListView), findsOneWidget);
+  });
+
+  testWidgets('limits page width on a large screen', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: ResponsivePageLayout(child: Text('Page content'))),
+      ),
+    );
+
+    final constrainedBox = tester.widget<ConstrainedBox>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is ConstrainedBox && widget.constraints.maxWidth == 920,
+      ),
+    );
+
+    expect(constrainedBox.constraints.maxWidth, 920);
   });
 }

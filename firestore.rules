@@ -1,169 +1,54 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return signedIn() && request.auth.uid == userId;
-    }
-
-    function isAdmin() {
-      return signedIn()
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    function requestHasStatus(status) {
-      return request.resource.data.status == status;
-    }
-
-    function validArtisanTransition() {
-      return (resource.data.status == 'pending'
-          && (requestHasStatus('accepted') || requestHasStatus('refused')))
-        || (resource.data.status == 'accepted'
-          && requestHasStatus('inProgress'))
-        || (resource.data.status == 'inProgress'
-          && requestHasStatus('completed'));
-    }
-
-    function isSupportedTrade(trade) {
-      return trade in [
-        'plumber', 'electrician', 'air_conditioning_technician',
-        'appliance_repairer', 'locksmith', 'painter', 'carpenter'
-      ];
-    }
-
-    function isSupportedInterventionArea(area) {
-      return area in ['tunis', 'ariana', 'ben_arous', 'manouba'];
-    }
+    function signedIn() { return request.auth != null; }
+    function isOwner(id) { return signedIn() && request.auth.uid == id; }
+    function isAdmin() { return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'; }
+    function isParticipant() { return signedIn() && request.auth.uid in [resource.data.clientId, resource.data.artisanId]; }
 
     match /users/{userId} {
-      allow create: if isOwner(userId)
-        && request.resource.data.role in ['client', 'artisan']
-        && request.resource.data.keys().hasOnly(['name', 'email', 'role']);
+      allow create: if isOwner(userId) && request.resource.data.role in ['client', 'artisan'] && request.resource.data.keys().hasOnly(['name', 'email', 'role']);
       allow read: if isOwner(userId) || isAdmin();
-      allow update: if (isOwner(userId)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']))
-        || isAdmin();
+      allow update: if (isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])) || isAdmin();
       allow delete: if isAdmin();
-
       match /addresses/{addressId} {
         allow read, delete: if isOwner(userId);
-        allow create: if isOwner(userId)
-          && request.resource.data.keys().hasOnly(['value', 'createdAt'])
-          && request.resource.data.value is string
-          && request.resource.data.value.size() >= 5
-          && request.resource.data.value.size() <= 200
-          && request.resource.data.createdAt == request.time;
+        allow create: if isOwner(userId) && request.resource.data.keys().hasOnly(['value', 'createdAt']) && request.resource.data.value is string && request.resource.data.value.size() >= 5 && request.resource.data.value.size() <= 200 && request.resource.data.createdAt == request.time;
         allow update: if false;
       }
     }
 
     match /artisans/{artisanId} {
-      allow read: if signedIn()
-        && (resource.data.verified == true || isOwner(artisanId) || isAdmin());
-      allow create: if isAdmin()
-        || (isOwner(artisanId)
-          && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'artisan'
-          && request.resource.data.keys().hasOnly([
-            'name', 'trade', 'area', 'rating', 'reviewCount', 'startingPrice',
-            'verified', 'availableToday', 'verificationStatus',
-            'rejectionReason'
-          ])
-          && request.resource.data.name is string
-          && isSupportedTrade(request.resource.data.trade)
-          && isSupportedInterventionArea(request.resource.data.area)
-          && request.resource.data.rating == 0
-          && request.resource.data.reviewCount == 0
-          && request.resource.data.startingPrice is int
-          && request.resource.data.startingPrice >= 0
-          && request.resource.data.verified == false
-          && request.resource.data.verificationStatus == 'pending'
-          && request.resource.data.availableToday == true);
-      allow update: if isAdmin()
-        || (isOwner(artisanId)
-          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'artisan'
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'name', 'trade', 'area', 'startingPrice', 'availableToday'
-          ])
-          && request.resource.data.verified == resource.data.verified
-          && request.resource.data.verificationStatus == resource.data.verificationStatus
-          && isSupportedTrade(request.resource.data.trade)
-          && isSupportedInterventionArea(request.resource.data.area));
+      allow read: if signedIn() && (resource.data.verified == true || isOwner(artisanId) || isAdmin());
+      allow create: if isAdmin() || (isOwner(artisanId) && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'artisan');
+      allow update: if isAdmin() || (isOwner(artisanId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'trade', 'area', 'startingPrice', 'availableToday', 'availabilityRules', 'availabilityExceptions', 'defaultDurationMinutes']));
       allow delete: if isAdmin();
     }
 
     match /requests/{requestId} {
-      allow create: if signedIn()
-        && request.resource.data.clientId == request.auth.uid
-        && request.resource.data.status == 'pending';
-      allow read: if signedIn();
-      allow update: if isAdmin()
-        || (resource.data.artisanId == request.auth.uid
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
-          && validArtisanTransition())
-        || (resource.data.clientId == request.auth.uid
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
-          && request.resource.data.status == 'cancelled');
-      allow delete: if isAdmin()
-        || (resource.data.clientId == request.auth.uid
-          && resource.data.status == 'pending');
-
+      allow read: if isParticipant() || isAdmin();
+      allow create, update, delete: if isAdmin();
+      match /private/{document} {
+        allow read: if isAdmin()
+          || (signedIn() && request.auth.uid == get(/databases/$(database)/documents/requests/$(requestId)).data.clientId)
+          || (signedIn()
+            && request.auth.uid == get(/databases/$(database)/documents/requests/$(requestId)).data.artisanId
+            && get(/databases/$(database)/documents/requests/$(requestId)).data.status in ['accepted', 'awaitingQuote', 'quoteAccepted', 'inProgress', 'completed']);
+      }
       match /messages/{messageId} {
-        function chatIsOpen() {
-          return get(/databases/$(database)/documents/requests/$(requestId)).data.status in ['accepted', 'inProgress'];
-        }
-
-        function isRequestParticipant() {
-          return signedIn()
-            && request.auth.uid in [
-              get(/databases/$(database)/documents/requests/$(requestId)).data.clientId,
-              get(/databases/$(database)/documents/requests/$(requestId)).data.artisanId
-            ];
-        }
-
-        allow read: if chatIsOpen() && isRequestParticipant();
-        allow create: if chatIsOpen()
-          && isRequestParticipant()
-          && request.resource.data.keys().hasOnly([
-            'senderId', 'senderName', 'content', 'createdAt'
-          ])
-          && request.resource.data.senderId == request.auth.uid
-          && request.resource.data.senderName == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.name
-          && request.resource.data.content is string
-          && request.resource.data.content.size() > 0
-          && request.resource.data.content.size() <= 1000
-          && request.resource.data.createdAt == request.time;
+        allow read: if isParticipant() && get(/databases/$(database)/documents/requests/$(requestId)).data.status in ['accepted', 'awaitingQuote', 'quoteAccepted', 'inProgress'];
+        allow create: if isParticipant() && request.resource.data.senderId == request.auth.uid;
         allow update, delete: if false;
       }
     }
-
     match /reviews/{reviewId} {
-      allow read: if signedIn()
-        && (resource.data.clientId == request.auth.uid
-          || resource.data.artisanId == request.auth.uid
-          || isAdmin());
-      allow create: if signedIn()
-        && reviewId == request.resource.data.requestId
-        && request.resource.data.clientId == request.auth.uid
-        && get(/databases/$(database)/documents/requests/$(reviewId)).data.clientId == request.auth.uid
-        && get(/databases/$(database)/documents/requests/$(reviewId)).data.status == 'completed'
-        && request.resource.data.rating is int
-        && request.resource.data.rating >= 1
-        && request.resource.data.rating <= 5
-        && request.resource.data.keys().hasOnly([
-          'requestId', 'clientId', 'artisanId', 'rating', 'comment', 'createdAt'
-        ]);
+      allow read: if signedIn();
+      allow create: if signedIn() && reviewId == request.resource.data.requestId && request.resource.data.clientId == request.auth.uid && get(/databases/$(database)/documents/requests/$(reviewId)).data.clientId == request.auth.uid && get(/databases/$(database)/documents/requests/$(reviewId)).data.status == 'completed';
       allow update, delete: if isAdmin();
     }
-
     match /notifications/{notificationId} {
       allow read: if isOwner(resource.data.recipientId) || isAdmin();
-      allow update: if isOwner(resource.data.recipientId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead'])
-        && request.resource.data.isRead == true;
+      allow update: if isOwner(resource.data.recipientId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']) && request.resource.data.isRead == true;
       allow create, delete: if false;
     }
   }

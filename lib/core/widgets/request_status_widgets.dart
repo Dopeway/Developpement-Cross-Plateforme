@@ -12,9 +12,15 @@ class RequestStatusChip extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final color = switch (status) {
       RequestStatus.pending => scheme.tertiary,
-      RequestStatus.accepted || RequestStatus.inProgress => scheme.primary,
+      RequestStatus.accepted ||
+      RequestStatus.awaitingQuote ||
+      RequestStatus.quoteAccepted ||
+      RequestStatus.inProgress => scheme.primary,
       RequestStatus.completed => scheme.secondary,
-      RequestStatus.refused || RequestStatus.cancelled => scheme.error,
+      RequestStatus.refused ||
+      RequestStatus.cancelled ||
+      RequestStatus.expired => scheme.error,
+      RequestStatus.rescheduleRequested => scheme.tertiary,
     };
     return Chip(
       avatar: Icon(Icons.circle, size: 10, color: color),
@@ -35,11 +41,15 @@ class RequestTimeline extends StatelessWidget {
     final steps = <RequestStatus>[
       RequestStatus.pending,
       RequestStatus.accepted,
+      RequestStatus.awaitingQuote,
+      RequestStatus.quoteAccepted,
       RequestStatus.inProgress,
       RequestStatus.completed,
     ];
     final isTerminal =
-        status == RequestStatus.refused || status == RequestStatus.cancelled;
+        status == RequestStatus.refused ||
+        status == RequestStatus.cancelled ||
+        status == RequestStatus.expired;
     return Column(
       children: [
         if (isTerminal)

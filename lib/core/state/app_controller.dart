@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../features/artisans/data/artisan_repository.dart';
@@ -14,6 +15,7 @@ import '../../features/users/data/user_repository.dart';
 import '../models/app_user.dart';
 import '../models/app_notification.dart';
 import '../models/artisan.dart';
+import '../models/booking_slot.dart';
 import '../models/artisan_catalog.dart';
 import '../models/chat_message.dart';
 import '../models/intervention_request.dart';
@@ -173,23 +175,46 @@ class AppController extends ChangeNotifier {
   Future<void> createRequest({
     required Artisan artisan,
     required String description,
-    required String address,
-    required String slot,
+    required String addressId,
+    required DateTime start,
+    required DateTime end,
   }) async {
     final user = _currentUser;
     if (user == null || user.role != UserRole.client) {
       throw StateError('Seul un client peut créer une demande.');
     }
-    await _requestRepository.create(
-      client: user,
-      artisan: artisan,
-      description: description,
-      address: address,
-      slot: slot,
-    );
+    await FirebaseFunctions.instance.httpsCallable('reserveBooking').call({
+      'artisanId': artisan.id,
+      'addressId': addressId,
+      'description': description,
+      'start': start.toUtc().toIso8601String(),
+      'end': end.toUtc().toIso8601String(),
+    });
   }
 
-  Future<void> updateRequestStatus(String id, RequestStatus status) async {
+  Future<List<BookingSlot>> availableSlots({
+    required String artisanId,
+    required DateTime day,
+  }) async {
+    final result = await FirebaseFunctions.instance
+        .httpsCallable('availableSlots')
+        .call<Map<String, Object?>>({
+          'artisanId': artisanId,
+          'day':
+              '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}',
+        });
+    final slots = result.data['slots'] as List<Object?>? ?? const [];
+    return slots
+        .whereType<Map<Object?, Object?>>()
+        .map((slot) => BookingSlot.fromJson(Map<String, Object?>.from(slot)))
+        .toList();
+  }
+
+  Future<void> updateRequestStatus(
+    String id,
+    RequestStatus status, {
+    int? quoteAmount,
+  }) async {
     final user = _currentUser;
     if (user == null) throw StateError('Connexion requise.');
     final request = await _requestRepository.get(id);
@@ -205,10 +230,16 @@ class AppController extends ChangeNotifier {
     if (!isAdmin && !request.status.canTransitionTo(status)) {
       throw StateError('Cette transition n’est pas autorisée.');
     }
-    if (isClient && status != RequestStatus.cancelled) {
-      throw StateError('Le client peut uniquement annuler une demande.');
+    if (isClient &&
+        status != RequestStatus.cancelled &&
+        status != RequestStatus.quoteAccepted) {
+      throw StateError('Cette action client n’est pas autorisée.');
     }
-    await _requestRepository.updateStatus(id: id, status: status);
+    await FirebaseFunctions.instance.httpsCallable('changeRequestStatus').call({
+      'requestId': id,
+      'status': status.name,
+      'quoteAmount': ?quoteAmount,
+    });
   }
 
   Future<void> correctRequestStatus({

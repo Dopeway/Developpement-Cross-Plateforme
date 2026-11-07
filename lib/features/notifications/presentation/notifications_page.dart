@@ -170,6 +170,7 @@ class _NotificationCard extends StatelessWidget {
     AppNotificationType.interventionCompleted => Icons.rate_review_outlined,
     AppNotificationType.requestRefused => Icons.block_outlined,
     AppNotificationType.requestCancelled => Icons.cancel_outlined,
+    AppNotificationType.requestExpired => Icons.timer_off_outlined,
     AppNotificationType.reviewCreated => Icons.star_outline,
     AppNotificationType.chatMessage => Icons.chat_outlined,
   };

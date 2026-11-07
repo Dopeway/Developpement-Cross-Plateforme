@@ -483,6 +483,7 @@ class _RequestActionCardState extends State<_RequestActionCard> {
 
   String _actionLabel(RequestStatus status) => switch (status) {
     RequestStatus.accepted => 'Accepter',
+    RequestStatus.awaitingQuote => 'Envoyer le devis',
     RequestStatus.inProgress => 'Démarrer l’intervention',
     RequestStatus.completed => 'Terminer l’intervention',
     _ => 'Mettre à jour',
@@ -490,12 +491,20 @@ class _RequestActionCardState extends State<_RequestActionCard> {
 
   String _successMessage(RequestStatus status) => switch (status) {
     RequestStatus.accepted => 'Demande acceptée.',
+    RequestStatus.awaitingQuote => 'Devis envoyé au client.',
     RequestStatus.inProgress => 'Intervention démarrée.',
     RequestStatus.completed => 'Intervention terminée.',
     _ => 'Demande mise à jour.',
   };
 
   Future<void> _handleAction(RequestStatus status) async {
+    if (status == RequestStatus.awaitingQuote) {
+      final amount = await _askQuoteAmount();
+      if (amount != null && mounted) {
+        await _update(status, _successMessage(status), quoteAmount: amount);
+      }
+      return;
+    }
     if (status != RequestStatus.completed && status != RequestStatus.refused) {
       await _update(status, _successMessage(status));
       return;
@@ -529,10 +538,54 @@ class _RequestActionCardState extends State<_RequestActionCard> {
     }
   }
 
-  Future<void> _update(RequestStatus status, String message) async {
+  Future<int?> _askQuoteAmount() async {
+    final controller = TextEditingController();
+    final result = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Envoyer un devis'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Montant estimé (DT)',
+            helperText: 'Le client devra accepter ce devis.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final amount = int.tryParse(controller.text);
+              if (amount != null && amount >= 0) {
+                Navigator.pop(dialogContext, amount);
+              }
+            },
+            child: const Text('Envoyer'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return result;
+  }
+
+  Future<void> _update(
+    RequestStatus status,
+    String message, {
+    int? quoteAmount,
+  }) async {
     setState(() => _busy = true);
     try {
-      await AppScope.of(context).updateRequestStatus(widget.request.id, status);
+      await AppScope.of(context).updateRequestStatus(
+        widget.request.id,
+        status,
+        quoteAmount: quoteAmount,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(message)));

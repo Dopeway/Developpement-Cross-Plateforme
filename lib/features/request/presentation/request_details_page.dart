@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/models/intervention_request.dart';
 import '../../../core/state/app_scope.dart';
+import '../../../core/widgets/responsive_page_layout.dart';
 import '../../../core/widgets/request_status_widgets.dart';
 import '../../../app/app_routes.dart';
 
@@ -19,62 +20,64 @@ class RequestDetailsPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Détail de la demande')),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            Text(
-              request.service,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 12),
-            RequestStatusChip(status: request.status),
-            const SizedBox(height: 24),
-            _DetailSection(
-              title: 'Intervention',
-              children: [
-                _DetailRow(
-                  icon: Icons.person_outline,
-                  label: 'Artisan',
-                  value: request.artisanName,
-                ),
-                _DetailRow(
-                  icon: Icons.person_outline,
-                  label: 'Client',
-                  value: request.clientName,
-                ),
-                _DetailRow(
-                  icon: Icons.location_on_outlined,
-                  label: 'Adresse',
-                  value: request.address,
-                ),
-                _DetailRow(
-                  icon: Icons.schedule_outlined,
-                  label: 'Créneau',
-                  value: request.date,
+        child: ResponsivePageLayout(
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              Text(
+                request.service,
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 12),
+              RequestStatusChip(status: request.status),
+              const SizedBox(height: 24),
+              _DetailSection(
+                title: 'Intervention',
+                children: [
+                  _DetailRow(
+                    icon: Icons.person_outline,
+                    label: 'Artisan',
+                    value: request.artisanName,
+                  ),
+                  _DetailRow(
+                    icon: Icons.person_outline,
+                    label: 'Client',
+                    value: request.clientName,
+                  ),
+                  _DetailRow(
+                    icon: Icons.location_on_outlined,
+                    label: 'Adresse',
+                    value: request.address,
+                  ),
+                  _DetailRow(
+                    icon: Icons.schedule_outlined,
+                    label: 'Créneau',
+                    value: request.date,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              _DetailSection(
+                title: 'Description du besoin',
+                children: [Text(request.description)],
+              ),
+              if (canChat) ...[
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: () =>
+                      Navigator.of(context)
+                          .pushNamed(AppRoutes.chat, arguments: request),
+                  icon: const Icon(Icons.chat_outlined),
+                  label: const Text('Ouvrir la discussion'),
                 ),
               ],
-            ),
-            const SizedBox(height: 24),
-            _DetailSection(
-              title: 'Description du besoin',
-              children: [Text(request.description)],
-            ),
-            if (canChat) ...[
               const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: () =>
-                    Navigator.of(context)
-                        .pushNamed(AppRoutes.chat, arguments: request),
-                icon: const Icon(Icons.chat_outlined),
-                label: const Text('Ouvrir la discussion'),
+              _DetailSection(
+                title: 'Suivi de la demande',
+                children: [RequestTimeline(status: request.status)],
               ),
             ],
-            const SizedBox(height: 24),
-            _DetailSection(
-              title: 'Suivi de la demande',
-              children: [RequestTimeline(status: request.status)],
-            ),
-          ],
+          ),
         ),
       ),
     );

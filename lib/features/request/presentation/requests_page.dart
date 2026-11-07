@@ -155,6 +155,20 @@ class _RequestsPageState extends State<RequestsPage> {
                   label: const Text('Donner un avis'),
                 ),
               ),
+            if (role == UserRole.client &&
+                request.status == RequestStatus.awaitingQuote)
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.tonalIcon(
+                  onPressed: () => _acceptQuote(context, request),
+                  icon: const Icon(Icons.request_quote_outlined),
+                  label: Text(
+                    request.quoteAmount == null
+                        ? 'Accepter le devis'
+                        : 'Accepter le devis (${request.quoteAmount} DT)',
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -223,6 +237,48 @@ class _RequestsPageState extends State<RequestsPage> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Cet avis n’a pas pu être enregistré.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _acceptQuote(
+    BuildContext context,
+    InterventionRequest request,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Accepter ce devis ?'),
+        content: Text(
+          request.quoteAmount == null
+              ? 'Le montant indiqué par l’artisan sera accepté.'
+              : 'Vous acceptez un devis de ${request.quoteAmount} DT.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Pas maintenant'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Accepter'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await AppScope.of(context)
+          .updateRequestStatus(request.id, RequestStatus.quoteAccepted);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Devis accepté.')));
+      }
+    } on Exception {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Le devis n’a pas pu être accepté.')),
         );
       }
     }

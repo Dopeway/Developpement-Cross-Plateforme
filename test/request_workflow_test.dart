@@ -8,11 +8,11 @@ void main() {
       isTrue,
     );
     expect(
-      RequestStatus.accepted.canTransitionTo(RequestStatus.inProgress),
+      RequestStatus.accepted.canTransitionTo(RequestStatus.awaitingQuote),
       isTrue,
     );
     expect(
-      RequestStatus.inProgress.canTransitionTo(RequestStatus.completed),
+      RequestStatus.awaitingQuote.canTransitionTo(RequestStatus.quoteAccepted),
       isTrue,
     );
   });
@@ -45,7 +45,10 @@ void main() {
 
   test('propose uniquement la prochaine action artisan pertinente', () {
     expect(RequestStatus.pending.nextArtisanStatus, RequestStatus.accepted);
-    expect(RequestStatus.accepted.nextArtisanStatus, RequestStatus.inProgress);
+    expect(
+      RequestStatus.accepted.nextArtisanStatus,
+      RequestStatus.awaitingQuote,
+    );
     expect(RequestStatus.inProgress.nextArtisanStatus, RequestStatus.completed);
     expect(RequestStatus.completed.nextArtisanStatus, isNull);
   });

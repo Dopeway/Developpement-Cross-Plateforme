@@ -7,6 +7,7 @@ enum AppNotificationType {
   interventionCompleted,
   requestRefused,
   requestCancelled,
+  requestExpired,
   reviewCreated,
   chatMessage,
 }

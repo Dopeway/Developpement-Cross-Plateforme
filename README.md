@@ -14,6 +14,12 @@ Le chat est disponible uniquement au client et à l’artisan concerné, après 
 
 Les clients peuvent enregistrer des adresses dans leur compte. Elles sont stockées dans `users/{uid}/addresses` et peuvent préremplir une nouvelle demande. L’apparence suit automatiquement le réglage clair ou sombre de l’appareil.
 
+## Réservations et confidentialité
+
+Une demande bloque temporairement le créneau choisi pendant une heure. La réservation est créée par une Cloud Function transactionnelle : deux clients ne peuvent donc pas réserver le même créneau. Sans réponse de l'artisan, une tâche planifiée libère le créneau en passant la demande à `expired`.
+
+L'adresse complète est stockée dans un document privé séparé. Avant l'acceptation, l'artisan ne voit que sa zone d'intervention ; l'adresse est révélée à l'artisan après acceptation. Les demandes ne sont lisibles que par leur client, leur artisan ou un administrateur.
+
 ## Prérequis
 
 - Flutter et Dart stables ;

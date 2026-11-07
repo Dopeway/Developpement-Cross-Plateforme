@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/models/app_user.dart';
 import '../../../core/state/app_scope.dart';
+import '../../../core/widgets/responsive_page_layout.dart';
 import '../../../app/app_routes.dart';
 import '../../account/presentation/account_page.dart';
 import '../../activity/presentation/activity_page.dart';
@@ -67,14 +68,7 @@ class _AppShellState extends State<AppShell> {
                       .toList(),
                 ),
               ),
-            Expanded(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1100),
-                  child: pages[_selectedIndex],
-                ),
-              ),
-            ),
+            Expanded(child: ResponsivePageLayout(child: pages[_selectedIndex])),
           ],
         ),
       ),
