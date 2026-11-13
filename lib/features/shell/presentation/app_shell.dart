@@ -6,6 +6,7 @@ import '../../../core/widgets/responsive_page_layout.dart';
 import '../../../app/app_routes.dart';
 import '../../account/presentation/account_page.dart';
 import '../../activity/presentation/activity_page.dart';
+import '../../availability/presentation/availability_page.dart';
 import '../../admin/presentation/admin_page.dart';
 import '../../home/presentation/home_page.dart';
 import '../../notifications/presentation/notifications_page.dart';
@@ -125,7 +126,12 @@ class _AppShellState extends State<AppShell> {
 
   List<Widget> _pagesFor(UserRole role) => switch (role) {
     UserRole.client => const [HomePage(), RequestsPage(), AccountPage()],
-    UserRole.artisan => const [ActivityPage(), RequestsPage(), AccountPage()],
+    UserRole.artisan => const [
+      ActivityPage(),
+      AvailabilityPage(),
+      RequestsPage(),
+      AccountPage(),
+    ],
     UserRole.admin => const [
       AdminPage(embedded: true),
       RequestsPage(),
@@ -148,6 +154,11 @@ class _AppShellState extends State<AppShell> {
         Icons.handyman_outlined,
         Icons.handyman,
         'Tableau de bord',
+      ),
+      _ShellDestination(
+        Icons.calendar_month_outlined,
+        Icons.calendar_month,
+        'Planning',
       ),
       _ShellDestination(
         Icons.assignment_outlined,

@@ -12,12 +12,13 @@ class RequestStatusChip extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final color = switch (status) {
       RequestStatus.pending => scheme.tertiary,
-      RequestStatus.accepted ||
       RequestStatus.awaitingQuote ||
+      RequestStatus.accepted ||
       RequestStatus.quoteAccepted ||
       RequestStatus.inProgress => scheme.primary,
       RequestStatus.completed => scheme.secondary,
       RequestStatus.refused ||
+      RequestStatus.quoteRefused ||
       RequestStatus.cancelled ||
       RequestStatus.expired => scheme.error,
       RequestStatus.rescheduleRequested => scheme.tertiary,
@@ -38,16 +39,20 @@ class RequestTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Les demandes de l'ancien parcours sont présentées comme confirmées.
+    final currentStatus = status == RequestStatus.quoteAccepted
+        ? RequestStatus.accepted
+        : status;
     final steps = <RequestStatus>[
       RequestStatus.pending,
-      RequestStatus.accepted,
       RequestStatus.awaitingQuote,
-      RequestStatus.quoteAccepted,
+      RequestStatus.accepted,
       RequestStatus.inProgress,
       RequestStatus.completed,
     ];
     final isTerminal =
         status == RequestStatus.refused ||
+        status == RequestStatus.quoteRefused ||
         status == RequestStatus.cancelled ||
         status == RequestStatus.expired;
     return Column(
@@ -67,8 +72,8 @@ class RequestTimeline extends StatelessWidget {
           for (var index = 0; index < steps.length; index++)
             _TimelineStep(
               label: steps[index].label,
-              active: steps[index].index <= status.index,
-              current: steps[index] == status,
+              active: index <= steps.indexOf(currentStatus),
+              current: steps[index] == currentStatus,
               isLast: index == steps.length - 1,
             ),
       ],

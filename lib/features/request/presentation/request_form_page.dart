@@ -1,4 +1,3 @@
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/models/artisan.dart';
@@ -20,18 +19,18 @@ class _RequestFormPageState extends State<RequestFormPage> {
   final _formKey = GlobalKey<FormState>();
   final _description = TextEditingController();
   final _day = ValueNotifier<DateTime>(
-    DateTime.now().add(const Duration(days: 1)),
+    DateUtils.dateOnly(DateTime.now().add(const Duration(days: 1))),
   );
   String? _addressId;
   String? _slotStart;
-  Future<List<BookingSlot>>? _slotsFuture;
-
+  Future<_BookingCalendar>? _calendarFuture;
+  bool _showSlotError = false;
   bool _submitting = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _slotsFuture ??= _loadSlots();
+    _calendarFuture ??= _loadCalendar();
   }
 
   @override
@@ -41,13 +40,41 @@ class _RequestFormPageState extends State<RequestFormPage> {
     super.dispose();
   }
 
-  Future<List<BookingSlot>> _loadSlots() =>
-      AppScope.of(context)
-          .availableSlots(artisanId: widget.artisan.id, day: _day.value);
+  Future<_BookingCalendar> _loadCalendar() async {
+    final requestedDay = DateUtils.dateOnly(_day.value);
+    final app = AppScope.of(context);
+    final availableDays = await app.availableBookingDays(
+      artisanId: widget.artisan.id,
+      startDay: DateUtils.dateOnly(DateTime.now()),
+      days: 60,
+    );
+    final selectedDay = availableDays.contains(_dateKey(requestedDay))
+        ? requestedDay
+        : _firstAvailableDay(availableDays) ?? requestedDay;
+    final slots = availableDays.contains(_dateKey(selectedDay))
+        ? await app.availableSlots(
+            artisanId: widget.artisan.id,
+            day: selectedDay,
+          )
+        : const <BookingSlot>[];
+    return _BookingCalendar(
+      selectedDay: selectedDay,
+      availableDays: availableDays,
+      slots: slots,
+    );
+  }
 
-  void _reloadSlots() => setState(() {
+  DateTime? _firstAvailableDay(Set<String> days) {
+    if (days.isEmpty) return null;
+    final sortedDays = days.toList()..sort();
+    return DateTime.tryParse(sortedDays.first);
+  }
+
+  void _reloadCalendar(DateTime day) => setState(() {
+    _day.value = DateUtils.dateOnly(day);
     _slotStart = null;
-    _slotsFuture = _loadSlots();
+    _showSlotError = false;
+    _calendarFuture = _loadCalendar();
   });
 
   @override
@@ -98,58 +125,52 @@ class _RequestFormPageState extends State<RequestFormPage> {
                         value == null ? 'Choisissez une adresse.' : null,
                   ),
                   const SizedBox(height: 16),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.schedule_outlined),
-                    title: Text('Choisir le ${_formatDay(_day.value)}'),
-                    subtitle: const Text(
-                      'Seuls les créneaux encore libres sont proposés.',
-                    ),
-                    trailing: const Icon(Icons.edit_calendar_outlined),
-                    onTap: _chooseDay,
+                  Text(
+                    'Choisissez une date',
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  FutureBuilder<List<BookingSlot>>(
-                    future: _slotsFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.hasError) {
-                        return _SlotError(onRetry: _reloadSlots);
+                  const SizedBox(height: 4),
+                  const Text('Seuls les créneaux encore libres sont proposés.'),
+                  const SizedBox(height: 12),
+                  FutureBuilder<_BookingCalendar>(
+                    future: _calendarFuture,
+                    builder: (context, calendarSnapshot) {
+                      if (calendarSnapshot.hasError) {
+                        return _SlotError(
+                          onRetry: () => _reloadCalendar(_day.value),
+                        );
                       }
-                      if (!snapshot.hasData) {
+                      if (!calendarSnapshot.hasData) {
                         return const Padding(
                           padding: EdgeInsets.all(12),
                           child: Center(child: CircularProgressIndicator()),
                         );
                       }
-                      final slots = snapshot.data!;
-                      if (slots.isEmpty) {
-                        return const Text('Aucun créneau libre ce jour-là.');
-                      }
-                      final availableStartTimes = slots
-                          .map((slot) => slot.start.toIso8601String())
-                          .toSet();
-                      final selectedStart =
-                          availableStartTimes.contains(_slotStart)
-                          ? _slotStart
-                          : null;
-                      return DropdownButtonFormField<String>(
-                        key: const Key('request-slot-selector'),
-                        initialValue: selectedStart,
-                        decoration: const InputDecoration(
-                          labelText: 'Créneau disponible',
-                        ),
-                        items: slots
-                            .map(
-                              (slot) => DropdownMenuItem(
-                                value: slot.start.toIso8601String(),
-                                child: Text(_formatSlot(slot.start)),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) =>
-                            setState(() => _slotStart = value),
-                        validator: (value) => value == null
-                            ? 'Choisissez un créneau libre.'
-                            : null,
+                      final calendar = calendarSnapshot.data!;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          BookingDayPicker(
+                            selectedDay: calendar.selectedDay,
+                            availableDayKeys: calendar.availableDays,
+                            onSelected: _reloadCalendar,
+                            onOpenCalendar: () => _chooseDay(calendar),
+                          ),
+                          const SizedBox(height: 20),
+                          if (calendar.slots.isEmpty)
+                            const Text('Aucun créneau libre ce jour-là.')
+                          else
+                            _SlotSelector(
+                              day: calendar.selectedDay,
+                              slots: calendar.slots,
+                              selectedSlotStart: _slotStart,
+                              showError: _showSlotError,
+                              onSelected: (slot) => setState(() {
+                                _slotStart = slot.start.toIso8601String();
+                                _showSlotError = false;
+                              }),
+                            ),
+                        ],
                       );
                     },
                   ),
@@ -177,7 +198,7 @@ class _RequestFormPageState extends State<RequestFormPage> {
                         ? null
                         : () => _submit(
                             addressId: selectedAddressId,
-                            slotsFuture: _slotsFuture!,
+                            calendarFuture: _calendarFuture!,
                           ),
                     child: _submitting
                         ? const SizedBox(
@@ -196,38 +217,33 @@ class _RequestFormPageState extends State<RequestFormPage> {
     ),
   );
 
-  Future<void> _chooseDay() async {
+  Future<void> _chooseDay(_BookingCalendar calendar) async {
     final date = await showDatePicker(
       context: context,
-      firstDate: DateTime.now(),
+      firstDate: DateUtils.dateOnly(DateTime.now()),
       lastDate: DateTime.now().add(const Duration(days: 60)),
-      initialDate: _day.value,
+      initialDate: calendar.selectedDay,
+      selectableDayPredicate: (day) =>
+          calendar.availableDays.contains(_dateKey(day)),
     );
-    if (date == null || !mounted) {
-      return;
-    }
-    _day.value = date;
-    _reloadSlots();
+    if (date == null || !mounted) return;
+    _reloadCalendar(date);
   }
 
   Future<void> _submit({
     required String? addressId,
-    required Future<List<BookingSlot>> slotsFuture,
+    required Future<_BookingCalendar> calendarFuture,
   }) async {
-    if (!_formKey.currentState!.validate() ||
-        addressId == null ||
-        _slotStart == null) {
-      return;
-    }
-    final slots = await slotsFuture;
-    if (!mounted) {
-      return;
-    }
-    final slot = slots
+    final formValid = _formKey.currentState!.validate();
+    if (_slotStart == null) setState(() => _showSlotError = true);
+    if (!formValid || addressId == null || _slotStart == null) return;
+    final calendar = await calendarFuture;
+    if (!mounted) return;
+    final slot = calendar.slots
         .where((item) => item.start.toIso8601String() == _slotStart)
         .firstOrNull;
     if (slot == null) {
-      _reloadSlots();
+      _reloadCalendar(calendar.selectedDay);
       return;
     }
     setState(() => _submitting = true);
@@ -244,15 +260,6 @@ class _RequestFormPageState extends State<RequestFormPage> {
         const SnackBar(content: Text('Créneau bloqué pendant une heure.')),
       );
       Navigator.pop(context);
-    } on FirebaseFunctionsException catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error.message ?? 'Ce créneau n’est plus disponible.'),
-          ),
-        );
-      }
-      _reloadSlots();
     } on Exception {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -266,14 +273,151 @@ class _RequestFormPageState extends State<RequestFormPage> {
     }
   }
 
-  String _formatSlot(DateTime value) =>
-      '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')} · ${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+  String _dateKey(DateTime value) =>
+      '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+}
+
+class BookingDayPicker extends StatelessWidget {
+  const BookingDayPicker({
+    super.key,
+    required this.selectedDay,
+    required this.availableDayKeys,
+    required this.onSelected,
+    required this.onOpenCalendar,
+  });
+
+  final DateTime selectedDay;
+  final Set<String> availableDayKeys;
+  final ValueChanged<DateTime> onSelected;
+  final VoidCallback onOpenCalendar;
+
+  @override
+  Widget build(BuildContext context) {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final start = selectedDay.isAfter(today.add(const Duration(days: 6)))
+        ? selectedDay
+        : today;
+    final days = List.generate(7, (index) => start.add(Duration(days: index)));
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final day in days) ...[
+            ChoiceChip(
+              key: Key('booking-day-${_dateKey(day)}'),
+              label: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(_shortWeekday(day.weekday)),
+                  Text('${day.day}/${day.month}'),
+                ],
+              ),
+              selected: DateUtils.isSameDay(day, selectedDay),
+              onSelected: availableDayKeys.contains(_dateKey(day))
+                  ? (_) => onSelected(day)
+                  : null,
+            ),
+            const SizedBox(width: 8),
+          ],
+          IconButton.outlined(
+            tooltip: 'Choisir une autre date',
+            onPressed: onOpenCalendar,
+            icon: const Icon(Icons.calendar_month_outlined),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _shortWeekday(int weekday) => const [
+    'Lun.',
+    'Mar.',
+    'Mer.',
+    'Jeu.',
+    'Ven.',
+    'Sam.',
+    'Dim.',
+  ][weekday - 1];
+
+  String _dateKey(DateTime value) =>
+      '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+}
+
+class _BookingCalendar {
+  const _BookingCalendar({
+    required this.selectedDay,
+    required this.availableDays,
+    required this.slots,
+  });
+
+  final DateTime selectedDay;
+  final Set<String> availableDays;
+  final List<BookingSlot> slots;
+}
+
+class _SlotSelector extends StatelessWidget {
+  const _SlotSelector({
+    required this.day,
+    required this.slots,
+    required this.selectedSlotStart,
+    required this.showError,
+    required this.onSelected,
+  });
+
+  final DateTime day;
+  final List<BookingSlot> slots;
+  final String? selectedSlotStart;
+  final bool showError;
+  final ValueChanged<BookingSlot> onSelected;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        'Créneaux du ${_formatDay(day)}',
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
+      const SizedBox(height: 10),
+      Wrap(
+        key: const Key('request-slot-selector'),
+        spacing: 8,
+        runSpacing: 8,
+        children: slots
+            .map(
+              (slot) => ChoiceChip(
+                label: Text(
+                  '${_formatTime(slot.start)}–${_formatTime(slot.end)}',
+                ),
+                selected: selectedSlotStart == slot.start.toIso8601String(),
+                onSelected: (_) => onSelected(slot),
+              ),
+            )
+            .toList(),
+      ),
+      if (showError)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(
+            'Choisissez un créneau libre.',
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        ),
+    ],
+  );
+
+  String _formatTime(DateTime value) {
+    final local = value.toLocal();
+    return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
+
   String _formatDay(DateTime value) =>
       '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year}';
 }
 
 class _NoAddressState extends StatelessWidget {
   const _NoAddressState();
+
   @override
   Widget build(BuildContext context) => const Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -286,7 +430,9 @@ class _NoAddressState extends StatelessWidget {
 
 class _SlotError extends StatelessWidget {
   const _SlotError({required this.onRetry});
+
   final VoidCallback onRetry;
+
   @override
   Widget build(BuildContext context) => Row(
     children: [

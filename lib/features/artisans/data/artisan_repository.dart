@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/models/artisan.dart';
 import '../../../core/models/artisan_catalog.dart';
+import '../../../core/models/availability.dart';
 
 class ArtisanRepository {
   ArtisanRepository({FirebaseFirestore? firestore})
@@ -99,5 +100,18 @@ class ArtisanRepository {
     'area': area.storageValue,
     'startingPrice': startingPrice,
     'availableToday': availableToday,
+  });
+
+  Future<void> updateAvailability({
+    required String id,
+    required List<AvailabilityRule> rules,
+    required List<AvailabilityException> exceptions,
+    required int defaultDurationMinutes,
+  }) => _artisans.doc(id).update({
+    'availabilityRules': rules.map((rule) => rule.toJson()).toList(),
+    'availabilityExceptions': exceptions
+        .map((exception) => exception.toJson())
+        .toList(),
+    'defaultDurationMinutes': defaultDurationMinutes,
   });
 }

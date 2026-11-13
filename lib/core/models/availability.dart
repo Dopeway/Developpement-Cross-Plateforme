@@ -16,6 +16,18 @@ class AvailabilityRule {
   final int startMinutes;
   final int endMinutes;
 
+  bool get isValid =>
+      weekday >= DateTime.monday &&
+      weekday <= DateTime.sunday &&
+      startMinutes >= 0 &&
+      endMinutes <= Duration.minutesPerDay &&
+      startMinutes < endMinutes;
+
+  bool overlaps(AvailabilityRule other) =>
+      weekday == other.weekday &&
+      startMinutes < other.endMinutes &&
+      endMinutes > other.startMinutes;
+
   Map<String, Object> toJson() => {
     'weekday': weekday,
     'startMinutes': startMinutes,
@@ -34,6 +46,8 @@ class AvailabilityException {
 
   final String date;
   final bool unavailable;
+
+  DateTime? get parsedDate => DateTime.tryParse(date);
 
   Map<String, Object> toJson() => {'date': date, 'unavailable': unavailable};
 }

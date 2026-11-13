@@ -34,6 +34,7 @@ class BookingSlot {
   static DateTime? _date(Object? value) => switch (value) {
     Timestamp timestamp => timestamp.toDate(),
     DateTime dateTime => dateTime,
+    String text => DateTime.tryParse(text),
     _ => null,
   };
 }

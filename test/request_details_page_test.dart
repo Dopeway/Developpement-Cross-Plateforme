@@ -25,6 +25,6 @@ void main() {
     expect(find.text('Détail de la demande'), findsOneWidget);
     expect(find.text('Mehdi Artisan'), findsOneWidget);
     expect(find.text('Fuite sous l’évier de la cuisine.'), findsOneWidget);
-    expect(find.text('Acceptée'), findsWidgets);
+    expect(find.text('Intervention confirmée'), findsWidgets);
   });
 }

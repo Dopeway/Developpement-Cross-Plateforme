@@ -94,7 +94,7 @@ class _Dashboard extends StatelessWidget {
               icon: Icons.inbox_outlined,
             ),
             _Metric(
-              label: 'Acceptées',
+              label: 'Confirmées',
               value: '${accepted.length}',
               icon: Icons.check_circle_outline,
             ),
@@ -125,8 +125,8 @@ class _Dashboard extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         _ActionSection(
-          title: 'Nouvelles demandes',
-          emptyMessage: 'Aucune nouvelle demande pour le moment.',
+          title: 'Demandes à chiffrer',
+          emptyMessage: 'Aucune demande à chiffrer pour le moment.',
           requests: pending,
         ),
         const SizedBox(height: 24),
@@ -482,7 +482,6 @@ class _RequestActionCardState extends State<_RequestActionCard> {
   }
 
   String _actionLabel(RequestStatus status) => switch (status) {
-    RequestStatus.accepted => 'Accepter',
     RequestStatus.awaitingQuote => 'Envoyer le devis',
     RequestStatus.inProgress => 'Démarrer l’intervention',
     RequestStatus.completed => 'Terminer l’intervention',
@@ -490,7 +489,6 @@ class _RequestActionCardState extends State<_RequestActionCard> {
   };
 
   String _successMessage(RequestStatus status) => switch (status) {
-    RequestStatus.accepted => 'Demande acceptée.',
     RequestStatus.awaitingQuote => 'Devis envoyé au client.',
     RequestStatus.inProgress => 'Intervention démarrée.',
     RequestStatus.completed => 'Intervention terminée.',

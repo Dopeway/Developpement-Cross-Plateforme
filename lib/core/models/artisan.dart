@@ -1,4 +1,5 @@
 import 'artisan_catalog.dart';
+import 'availability.dart';
 
 enum ArtisanVerificationStatus { pending, verified, refused, suspended }
 
@@ -24,6 +25,9 @@ class Artisan {
     required this.availableToday,
     this.verificationStatus = ArtisanVerificationStatus.pending,
     this.rejectionReason,
+    this.availabilityRules = const [],
+    this.availabilityExceptions = const [],
+    this.defaultDurationMinutes = 60,
   });
   factory Artisan.fromJson(Map<String, Object?> json) => Artisan(
     id: json['id']! as String,
@@ -37,7 +41,30 @@ class Artisan {
     availableToday: json['availableToday']! as bool,
     verificationStatus: _statusFromJson(json),
     rejectionReason: json['rejectionReason'] as String?,
+    availabilityRules: _rulesFromJson(json['availabilityRules']),
+    availabilityExceptions: _exceptionsFromJson(json['availabilityExceptions']),
+    defaultDurationMinutes: json['defaultDurationMinutes'] as int? ?? 60,
   );
+
+  static List<AvailabilityRule> _rulesFromJson(Object? value) =>
+      (value as List<Object?>? ?? const [])
+          .whereType<Map<Object?, Object?>>()
+          .map(
+            (item) =>
+                AvailabilityRule.fromJson(Map<String, Object?>.from(item)),
+          )
+          .where((rule) => rule.isValid)
+          .toList();
+
+  static List<AvailabilityException> _exceptionsFromJson(Object? value) =>
+      (value as List<Object?>? ?? const [])
+          .whereType<Map<Object?, Object?>>()
+          .map(
+            (item) =>
+                AvailabilityException.fromJson(Map<String, Object?>.from(item)),
+          )
+          .where((exception) => exception.parsedDate != null)
+          .toList();
 
   static ArtisanVerificationStatus _statusFromJson(Map<String, Object?> json) {
     final status = json['verificationStatus'] as String?;
@@ -60,6 +87,9 @@ class Artisan {
   final bool availableToday;
   final ArtisanVerificationStatus verificationStatus;
   final String? rejectionReason;
+  final List<AvailabilityRule> availabilityRules;
+  final List<AvailabilityException> availabilityExceptions;
+  final int defaultDurationMinutes;
 
   Map<String, Object?> toJson() => {
     'name': name,
@@ -72,5 +102,14 @@ class Artisan {
     'availableToday': availableToday,
     'verificationStatus': verificationStatus.name,
     'rejectionReason': rejectionReason,
+    if (availabilityRules.isNotEmpty)
+      'availabilityRules': availabilityRules
+          .map((rule) => rule.toJson())
+          .toList(),
+    if (availabilityExceptions.isNotEmpty)
+      'availabilityExceptions': availabilityExceptions
+          .map((exception) => exception.toJson())
+          .toList(),
+    'defaultDurationMinutes': defaultDurationMinutes,
   };
 }

@@ -169,6 +169,16 @@ class _RequestsPageState extends State<RequestsPage> {
                   ),
                 ),
               ),
+            if (role == UserRole.client &&
+                request.status == RequestStatus.awaitingQuote)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () => _declineQuote(context, request),
+                  icon: const Icon(Icons.close_outlined),
+                  label: const Text('Refuser le devis'),
+                ),
+              ),
           ],
         ),
       ),
@@ -270,15 +280,59 @@ class _RequestsPageState extends State<RequestsPage> {
     if (confirmed != true || !context.mounted) return;
     try {
       await AppScope.of(context)
-          .updateRequestStatus(request.id, RequestStatus.quoteAccepted);
+          .updateRequestStatus(request.id, RequestStatus.accepted);
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Devis accepté.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Devis accepté, intervention confirmée.'),
+          ),
+        );
       }
     } on Exception {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Le devis n’a pas pu être accepté.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _declineQuote(
+    BuildContext context,
+    InterventionRequest request,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Refuser ce devis ?'),
+        content: const Text(
+          'La demande sera clôturée et l’artisan ne pourra plus démarrer l’intervention.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Conserver le devis'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Refuser le devis'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await AppScope.of(context)
+          .updateRequestStatus(request.id, RequestStatus.quoteRefused);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Devis refusé, demande clôturée.')),
+        );
+      }
+    } on Exception {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Le devis n’a pas pu être refusé.')),
         );
       }
     }

@@ -5,10 +5,10 @@ Application Flutter de mise en relation entre clients et artisans pour le dépan
 ## Expériences par rôle
 
 - **Client** : recherche d’un artisan vérifié, consultation de sa fiche, création et suivi d’une demande, annulation avant acceptation et dépôt d’un avis après intervention terminée.
-- **Artisan** : tableau de bord des demandes, acceptation/refus, progression d’une intervention jusqu’à sa terminaison et consultation de son profil professionnel.
+- **Artisan** : tableau de bord des demandes, gestion du planning et des indisponibilités, acceptation/refus, progression d’une intervention jusqu’à sa terminaison et consultation de son profil professionnel.
 - **Administrateur** : statistiques, validation ou refus des profils artisans, consultation des utilisateurs et correction exceptionnelle des statuts de demande.
 
-Le cycle normal d’une demande est `pending` → `accepted` → `inProgress` → `completed`. Une demande en attente peut aussi devenir `refused` ou `cancelled`.
+Le devis est une étape de la même demande : `pending` → `awaitingQuote` → `accepted` → `inProgress` → `completed`. Le client peut refuser le devis (`quoteRefused`), ce qui clôture définitivement la demande ; l’artisan ne peut donc plus démarrer l’intervention. Une demande reçue peut aussi être refusée par l’artisan ou annulée par le client.
 
 Le chat est disponible uniquement au client et à l’artisan concerné, après acceptation et pendant l’intervention. Il permet de préciser l’accès, l’horaire ou le besoin ; il est fermé lorsque l’intervention est terminée, refusée ou annulée.
 
@@ -16,7 +16,7 @@ Les clients peuvent enregistrer des adresses dans leur compte. Elles sont stock�
 
 ## Réservations et confidentialité
 
-Une demande bloque temporairement le créneau choisi pendant une heure. La réservation est créée par une Cloud Function transactionnelle : deux clients ne peuvent donc pas réserver le même créneau. Sans réponse de l'artisan, une tâche planifiée libère le créneau en passant la demande à `expired`.
+L’artisan publie ses plages habituelles, la durée des créneaux et ses journées d’absence depuis l’onglet **Planning**. Le client voit uniquement les jours ouverts et les créneaux calculés à partir de ce planning, puis envoie une demande que l’artisan accepte ou refuse.
 
 L'adresse complète est stockée dans un document privé séparé. Avant l'acceptation, l'artisan ne voit que sa zone d'intervention ; l'adresse est révélée à l'artisan après acceptation. Les demandes ne sont lisibles que par leur client, leur artisan ou un administrateur.
 
@@ -84,6 +84,7 @@ flutter run
 - `lib/features/auth/data` : connexion et inscription Firebase Authentication ;
 - `lib/features/users/data` : profils et rôles Firestore ;
 - `lib/features/artisans/data` : catalogue temps réel des artisans ;
+- `lib/features/availability/presentation` : gestion du planning artisan ;
 - `lib/features/request/data` : création, lecture et mise à jour des demandes ;
 - `lib/core/state/app_controller.dart` : état de session léger partagé par l’interface.
 
@@ -91,18 +92,7 @@ Les collections Firestore sont `users`, `artisans`, `requests` et `reviews`. Les
 
 ## Notifications
 
-Les notifications sont persistées dans la collection Firestore `notifications`. Elles sont créées par des Cloud Functions afin que le client ne puisse jamais notifier arbitrairement un autre compte. Elles couvrent notamment : nouvelle demande pour l’artisan, acceptation, démarrage, fin d’intervention, refus, annulation et nouvel avis.
-
-Installez les dépendances des fonctions puis déployez-les avec les règles :
-
-```bash
-cd functions
-npm install
-cd ..
-firebase deploy --only functions,firestore:rules,firestore:indexes
-```
-
-L’application affiche une pastille de notifications non lues et permet de les marquer comme lues. Les notifications système hors application (push) ne sont pas incluses : elles nécessiteraient la collecte explicite d’un jeton FCM et l’autorisation de l’utilisateur.
+L’application affiche une pastille de notifications Firestore. Les notifications système hors application (push) ne sont pas incluses : elles nécessiteraient la collecte explicite d’un jeton FCM et l’autorisation de l’utilisateur.
 
 ## Vérifications
 

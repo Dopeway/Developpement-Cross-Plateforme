@@ -61,6 +61,22 @@ class RequestDetailsPage extends StatelessWidget {
                 title: 'Description du besoin',
                 children: [Text(request.description)],
               ),
+              if (request.quoteAmount != null) ...[
+                const SizedBox(height: 24),
+                _DetailSection(
+                  title: 'Devis associé à cette demande',
+                  children: [
+                    Text(
+                      '${request.quoteAmount} DT',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Ce devis fait partie du suivi de cette intervention.',
+                    ),
+                  ],
+                ),
+              ],
               if (canChat) ...[
                 const SizedBox(height: 24),
                 FilledButton.icon(

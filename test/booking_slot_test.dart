@@ -22,4 +22,15 @@ void main() {
     expect(first.overlaps(overlap), isTrue);
     expect(first.overlaps(next), isFalse);
   });
+
+  test('désérialise les dates ISO renvoyées par une Cloud Function', () {
+    final slot = BookingSlot.fromJson(const <String, Object?>{
+      'start': '2026-11-08T08:00:00.000Z',
+      'end': '2026-11-08T09:00:00.000Z',
+      'timeZone': 'Africa/Tunis',
+    });
+
+    expect(slot.start.toUtc(), DateTime.utc(2026, 11, 8, 8));
+    expect(slot.durationMinutes, 60);
+  });
 }

@@ -67,6 +67,17 @@ class UserRepository {
             .toList(),
       );
 
+  Future<SavedAddress?> getAddress(String userId, String addressId) async {
+    final document = await _users
+        .doc(userId)
+        .collection('addresses')
+        .doc(addressId)
+        .get();
+    final data = document.data();
+    if (data == null) return null;
+    return SavedAddress.fromJson(<String, Object?>{'id': document.id, ...data});
+  }
+
   Future<void> addAddress(String userId, String value) =>
       _users.doc(userId).collection('addresses').add(<String, Object?>{
         'value': value.trim(),

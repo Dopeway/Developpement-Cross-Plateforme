@@ -68,7 +68,11 @@ class RequestRepository {
   Future<void> updateStatus({
     required String id,
     required RequestStatus status,
-  }) => _requests.doc(id).update({'status': status.name});
+    int? quoteAmount,
+  }) => _requests.doc(id).update({
+    'status': status.name,
+    'quoteAmount': ?quoteAmount,
+  });
 
   Future<void> correctStatus({
     required String id,

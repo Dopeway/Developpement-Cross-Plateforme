@@ -4,7 +4,37 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function isOwner(id) { return signedIn() && request.auth.uid == id; }
     function isAdmin() { return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'; }
-    function isParticipant() { return signedIn() && request.auth.uid in [resource.data.clientId, resource.data.artisanId]; }
+    // Firestore can prove these equalities from the client query constraints.
+    function isParticipant() { return signedIn() && (request.auth.uid == resource.data.clientId || request.auth.uid == resource.data.artisanId); }
+    function changesOnlyStatusAndQuote() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'quoteAmount']);
+    }
+    function quoteIsUnchanged() {
+      return request.resource.data.quoteAmount == resource.data.quoteAmount;
+    }
+    function isArtisanForRequest() { return signedIn() && request.auth.uid == resource.data.artisanId; }
+    function isClientForRequest() { return signedIn() && request.auth.uid == resource.data.clientId; }
+    function artisanWorkflowChange() {
+      return isArtisanForRequest() && (
+        (resource.data.status == 'pending'
+          && request.resource.data.status in ['awaitingQuote', 'refused'])
+        || (resource.data.status in ['accepted', 'quoteAccepted']
+          && request.resource.data.status == 'inProgress')
+        || (resource.data.status == 'inProgress'
+          && request.resource.data.status == 'completed')
+      ) && (request.resource.data.status == 'awaitingQuote'
+        ? (request.resource.data.quoteAmount is int
+          && request.resource.data.quoteAmount >= 0)
+        : quoteIsUnchanged());
+    }
+    function clientWorkflowChange() {
+      return isClientForRequest() && (
+        (resource.data.status == 'pending'
+          && request.resource.data.status == 'cancelled')
+        || (resource.data.status == 'awaitingQuote'
+          && request.resource.data.status in ['accepted', 'quoteRefused'])
+      ) && quoteIsUnchanged();
+    }
 
     match /users/{userId} {
       allow create: if isOwner(userId) && request.resource.data.role in ['client', 'artisan'] && request.resource.data.keys().hasOnly(['name', 'email', 'role']);
@@ -27,7 +57,14 @@ service cloud.firestore {
 
     match /requests/{requestId} {
       allow read: if isParticipant() || isAdmin();
-      allow create, update, delete: if isAdmin();
+      allow create: if signedIn()
+        && request.resource.data.clientId == request.auth.uid
+        && request.resource.data.status == 'pending';
+      allow update: if isAdmin() || (
+        changesOnlyStatusAndQuote()
+        && (artisanWorkflowChange() || clientWorkflowChange())
+      );
+      allow delete: if isAdmin();
       match /private/{document} {
         allow read: if isAdmin()
           || (signedIn() && request.auth.uid == get(/databases/$(database)/documents/requests/$(requestId)).data.clientId)

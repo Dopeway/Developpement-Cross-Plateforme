@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../features/artisans/data/artisan_repository.dart';
@@ -16,6 +15,7 @@ import '../models/app_user.dart';
 import '../models/app_notification.dart';
 import '../models/artisan.dart';
 import '../models/booking_slot.dart';
+import '../models/availability.dart';
 import '../models/artisan_catalog.dart';
 import '../models/chat_message.dart';
 import '../models/intervention_request.dart';
@@ -183,31 +183,85 @@ class AppController extends ChangeNotifier {
     if (user == null || user.role != UserRole.client) {
       throw StateError('Seul un client peut créer une demande.');
     }
-    await FirebaseFunctions.instance.httpsCallable('reserveBooking').call({
-      'artisanId': artisan.id,
-      'addressId': addressId,
-      'description': description,
-      'start': start.toUtc().toIso8601String(),
-      'end': end.toUtc().toIso8601String(),
-    });
+    final address = await _userRepository.getAddress(user.id, addressId);
+    if (address == null) throw StateError('Adresse introuvable.');
+    await _requestRepository.create(
+      client: user,
+      artisan: artisan,
+      description: description,
+      address: address.fullAddress,
+      slot: start.toIso8601String(),
+    );
   }
 
   Future<List<BookingSlot>> availableSlots({
     required String artisanId,
     required DateTime day,
   }) async {
-    final result = await FirebaseFunctions.instance
-        .httpsCallable('availableSlots')
-        .call<Map<String, Object?>>({
-          'artisanId': artisanId,
-          'day':
-              '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}',
-        });
-    final slots = result.data['slots'] as List<Object?>? ?? const [];
-    return slots
-        .whereType<Map<Object?, Object?>>()
-        .map((slot) => BookingSlot.fromJson(Map<String, Object?>.from(slot)))
-        .toList();
+    final artisan = await _artisanRepository.getArtisan(artisanId);
+    if (artisan == null || !artisan.verified) return const [];
+    return _slotsFor(artisan, day);
+  }
+
+  Future<Set<String>> availableBookingDays({
+    required String artisanId,
+    required DateTime startDay,
+    required int days,
+  }) async {
+    final artisan = await _artisanRepository.getArtisan(artisanId);
+    if (artisan == null || !artisan.verified) return const {};
+    return {
+      for (var index = 0; index < days; index++)
+        if (_slotsFor(artisan, startDay.add(Duration(days: index))).isNotEmpty)
+          _dateKey(startDay.add(Duration(days: index))),
+    };
+  }
+
+  String _dateKey(DateTime day) =>
+      '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+
+  List<BookingSlot> _slotsFor(Artisan artisan, DateTime day) {
+    final key = _dateKey(day);
+    if (artisan.availabilityExceptions.any(
+      (exception) => exception.date == key && exception.unavailable,
+    )) {
+      return const [];
+    }
+    final Iterable<AvailabilityRule> rules = artisan.availabilityRules.isEmpty
+        ? [
+            AvailabilityRule(
+              weekday: day.weekday,
+              startMinutes: 9 * 60,
+              endMinutes: 17 * 60,
+            ),
+          ]
+        : artisan.availabilityRules.where(
+            (rule) => rule.weekday == day.weekday,
+          );
+    final duration = artisan.defaultDurationMinutes.clamp(15, 240).toInt();
+    final slots = <BookingSlot>[];
+    for (final rule in rules) {
+      for (
+        var minute = rule.startMinutes;
+        minute + duration <= rule.endMinutes;
+        minute += duration
+      ) {
+        final start = DateTime(
+          day.year,
+          day.month,
+          day.day,
+        ).add(Duration(minutes: minute));
+        if (!start.isAfter(DateTime.now())) continue;
+        slots.add(
+          BookingSlot(
+            start: start,
+            end: start.add(Duration(minutes: duration)),
+            timeZone: 'Africa/Tunis',
+          ),
+        );
+      }
+    }
+    return slots;
   }
 
   Future<void> updateRequestStatus(
@@ -231,15 +285,38 @@ class AppController extends ChangeNotifier {
       throw StateError('Cette transition n’est pas autorisée.');
     }
     if (isClient &&
-        status != RequestStatus.cancelled &&
-        status != RequestStatus.quoteAccepted) {
+        !((request.status == RequestStatus.pending &&
+                status == RequestStatus.cancelled) ||
+            (request.status == RequestStatus.awaitingQuote &&
+                (status == RequestStatus.accepted ||
+                    status == RequestStatus.quoteRefused)))) {
       throw StateError('Cette action client n’est pas autorisée.');
     }
-    await FirebaseFunctions.instance.httpsCallable('changeRequestStatus').call({
-      'requestId': id,
-      'status': status.name,
-      'quoteAmount': ?quoteAmount,
-    });
+    if (isArtisan &&
+        !((request.status == RequestStatus.pending &&
+                (status == RequestStatus.awaitingQuote ||
+                    status == RequestStatus.refused)) ||
+            ((request.status == RequestStatus.accepted ||
+                    request.status == RequestStatus.quoteAccepted) &&
+                status == RequestStatus.inProgress) ||
+            (request.status == RequestStatus.inProgress &&
+                status == RequestStatus.completed))) {
+      throw StateError('Cette action artisan n’est pas autorisée.');
+    }
+    if (status == RequestStatus.awaitingQuote &&
+        (quoteAmount == null || quoteAmount < 0)) {
+      throw ArgumentError('Un montant de devis valide est requis.');
+    }
+    if (status != RequestStatus.awaitingQuote && quoteAmount != null) {
+      throw ArgumentError(
+        'Le montant ne peut être modifié qu’à l’envoi du devis.',
+      );
+    }
+    await _requestRepository.updateStatus(
+      id: id,
+      status: status,
+      quoteAmount: quoteAmount,
+    );
   }
 
   Future<void> correctRequestStatus({
@@ -335,6 +412,39 @@ class AppController extends ChangeNotifier {
       area: area,
       startingPrice: startingPrice,
       availableToday: availableToday,
+    );
+  }
+
+  Future<void> updateArtisanAvailability({
+    required List<AvailabilityRule> rules,
+    required List<AvailabilityException> exceptions,
+    required int defaultDurationMinutes,
+  }) async {
+    final user = _currentUser;
+    if (user == null || user.role != UserRole.artisan) {
+      throw StateError('Seul un artisan peut modifier ses disponibilités.');
+    }
+    if (rules.any((rule) => !rule.isValid) ||
+        defaultDurationMinutes < 15 ||
+        defaultDurationMinutes > 240) {
+      throw ArgumentError('Le planning contient des horaires invalides.');
+    }
+    for (var index = 0; index < rules.length; index++) {
+      for (
+        var otherIndex = index + 1;
+        otherIndex < rules.length;
+        otherIndex++
+      ) {
+        if (rules[index].overlaps(rules[otherIndex])) {
+          throw ArgumentError('Deux plages horaires se chevauchent.');
+        }
+      }
+    }
+    await _artisanRepository.updateAvailability(
+      id: user.id,
+      rules: rules,
+      exceptions: exceptions,
+      defaultDurationMinutes: defaultDurationMinutes,
     );
   }
 

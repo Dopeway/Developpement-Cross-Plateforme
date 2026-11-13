@@ -3,6 +3,7 @@ const {onSchedule} = require('firebase-functions/v2/scheduler');
 const {onDocumentCreated, onDocumentUpdated} = require('firebase-functions/v2/firestore');
 const {initializeApp} = require('firebase-admin/app');
 const {FieldValue, Timestamp, getFirestore} = require('firebase-admin/firestore');
+const {availabilitySlots, hasBookingCollision, isDateKey, tunisDateKey} = require('./availability');
 
 initializeApp();
 const database = getFirestore();
@@ -14,7 +15,9 @@ function requireUser(request) {
 }
 function notificationForStatus(request) {
   const messages = {
-    accepted: ['requestAccepted', 'Demande acceptée', `${request.artisanName} a accepté votre demande.`],
+    awaitingQuote: ['quoteSent', 'Devis à valider', `${request.artisanName} a envoyé un devis pour votre demande.`],
+    accepted: ['requestAccepted', 'Intervention confirmée', `${request.clientName} a accepté le devis.`],
+    quoteRefused: ['quoteRefused', 'Devis refusé', `${request.clientName} a refusé le devis.`],
     refused: ['requestRefused', 'Demande refusée', `${request.artisanName} ne peut pas intervenir pour cette demande.`],
     expired: ['requestExpired', 'Créneau libéré', 'L’artisan n’a pas répondu à temps. Choisissez une autre disponibilité.'],
     cancelled: ['requestCancelled', 'Demande annulée', `${request.clientName} a annulé la demande.`],
@@ -27,68 +30,81 @@ function createNotification({id, recipientId, type, title, message, requestId}) 
   return database.collection('notifications').doc(id).set({recipientId, type, title, message, requestId: requestId ?? null, isRead: false, createdAt: FieldValue.serverTimestamp()});
 }
 
-exports.reserveBooking = onCall(async (request) => {
+function matchesAvailability(profile, start, end) {
+  return availabilitySlots(profile, tunisDateKey(start)).some((slot) => slot.start.getTime() === start.getTime() && slot.end.getTime() === end.getTime());
+}
+
+exports.reserveBooking = onCall({cors: true}, async (request) => {
   const clientId = requireUser(request);
   const {artisanId, addressId, description, start, end} = request.data ?? {};
   const bookingStart = new Date(start);
   const bookingEnd = new Date(end);
   if (typeof artisanId !== 'string' || typeof addressId !== 'string' || typeof description !== 'string' || description.trim().length < 10 || Number.isNaN(bookingStart.valueOf()) || Number.isNaN(bookingEnd.valueOf()) || bookingEnd <= bookingStart) throw new HttpsError('invalid-argument', 'Les données de réservation sont invalides.');
   if (bookingStart <= new Date() || bookingEnd - bookingStart > 4 * 60 * 60 * 1000) throw new HttpsError('invalid-argument', 'Ce créneau ne peut pas être réservé.');
-  const [client, artisan, address] = await Promise.all([
-    database.collection('users').doc(clientId).get(), database.collection('artisans').doc(artisanId).get(), database.collection('users').doc(clientId).collection('addresses').doc(addressId).get(),
+  const [client, address] = await Promise.all([
+    database.collection('users').doc(clientId).get(), database.collection('users').doc(clientId).collection('addresses').doc(addressId).get(),
   ]);
   if (client.data()?.role !== 'client') throw new HttpsError('permission-denied', 'Seul un client peut réserver.');
-  if (!artisan.exists || artisan.data().verified !== true) throw new HttpsError('failed-precondition', 'Cet artisan n’est pas disponible.');
   if (!address.exists) throw new HttpsError('not-found', 'Adresse introuvable.');
   const requestRef = database.collection('requests').doc();
   await database.runTransaction(async (transaction) => {
+    const artisan = await transaction.get(database.collection('artisans').doc(artisanId));
+    if (!artisan.exists || artisan.data().verified !== true) throw new HttpsError('failed-precondition', 'Cet artisan n’est pas disponible.');
+    const profile = artisan.data();
+    if (!matchesAvailability(profile, bookingStart, bookingEnd)) throw new HttpsError('failed-precondition', 'Ce créneau ne fait plus partie des disponibilités de l’artisan.');
     const existing = await transaction.get(database.collection('requests').where('artisanId', '==', artisanId));
-    const collision = existing.docs.some((doc) => {
-      const data = doc.data(); const slot = data.booking;
-      return activeStatuses.has(data.status) && slot?.start?.toDate() < bookingEnd && slot?.end?.toDate() > bookingStart;
-    });
+    const collision = hasBookingCollision(existing.docs.map((doc) => doc.data()), {start: bookingStart, end: bookingEnd}, activeStatuses);
     if (collision) throw new HttpsError('already-exists', 'Ce créneau vient d’être réservé.');
-    const profile = artisan.data(); const savedAddress = address.data(); const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    const savedAddress = address.data(); const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
     transaction.set(requestRef, {service: profile.trade, artisanId, artisanName: profile.name, clientId, clientName: client.data().name, description: description.trim(), address: profile.area, addressId, addressLabel: savedAddress.label ?? 'Adresse', date: bookingStart.toISOString(), booking: {start: Timestamp.fromDate(bookingStart), end: Timestamp.fromDate(bookingEnd), timeZone: 'Africa/Tunis', expiresAt: Timestamp.fromDate(expiresAt)}, status: 'pending', createdAt: FieldValue.serverTimestamp()});
     transaction.set(requestRef.collection('private').doc('address'), {fullAddress: savedAddress.fullAddress ?? savedAddress.value, createdAt: FieldValue.serverTimestamp()});
   });
   return {requestId: requestRef.id};
 });
 
-exports.availableSlots = onCall(async (request) => {
+exports.availableSlots = onCall({cors: true}, async (request) => {
   requireUser(request);
   const {artisanId, day} = request.data ?? {};
-  const date = new Date(`${day}T00:00:00+01:00`);
-  if (typeof artisanId !== 'string' || Number.isNaN(date.valueOf())) throw new HttpsError('invalid-argument', 'Recherche de créneaux invalide.');
+  if (typeof artisanId !== 'string' || !isDateKey(day)) throw new HttpsError('invalid-argument', 'Recherche de créneaux invalide.');
   const artisan = await database.collection('artisans').doc(artisanId).get();
   if (!artisan.exists || artisan.data().verified !== true) return {slots: []};
-  const profile = artisan.data(); const duration = profile.defaultDurationMinutes ?? 60;
-  const weekday = date.getDay() || 7;
-  const rules = profile.availabilityRules ?? [{weekday, startMinutes: 540, endMinutes: 1020}];
-  const exceptions = profile.availabilityExceptions ?? [];
-  const key = day;
-  if (exceptions.some((item) => item.date === key && item.unavailable)) return {slots: []};
+  const profile = artisan.data();
   const requests = await database.collection('requests').where('artisanId', '==', artisanId).get();
   const slots = [];
-  for (const rule of rules.filter((item) => item.weekday === weekday)) {
-    for (let minute = rule.startMinutes; minute + duration <= rule.endMinutes; minute += duration) {
-      const start = new Date(date); start.setHours(0, minute, 0, 0); const end = new Date(start.getTime() + duration * 60000);
-      if (start <= new Date()) continue;
-      const busy = requests.docs.some((doc) => { const item = doc.data(); const slot = item.booking; return activeStatuses.has(item.status) && slot?.start?.toDate() < end && slot?.end?.toDate() > start; });
-      if (!busy) slots.push({start: start.toISOString(), end: end.toISOString(), timeZone: 'Africa/Tunis'});
-    }
+  for (const slot of availabilitySlots(profile, day)) {
+    if (slot.start <= new Date()) continue;
+    const busy = hasBookingCollision(requests.docs.map((doc) => doc.data()), slot, activeStatuses);
+    if (!busy) slots.push({start: slot.start.toISOString(), end: slot.end.toISOString(), timeZone: 'Africa/Tunis'});
   }
   return {slots};
 });
 
-exports.changeRequestStatus = onCall(async (request) => {
+exports.availableBookingDays = onCall({cors: true}, async (request) => {
+  requireUser(request);
+  const {artisanId, startDay, days} = request.data ?? {};
+  if (typeof artisanId !== 'string' || !isDateKey(startDay) || !Number.isInteger(days) || days < 1 || days > 60) throw new HttpsError('invalid-argument', 'Recherche de disponibilités invalide.');
+  const artisan = await database.collection('artisans').doc(artisanId).get();
+  if (!artisan.exists || artisan.data().verified !== true) return {days: []};
+  const profile = artisan.data();
+  const requests = await database.collection('requests').where('artisanId', '==', artisanId).get();
+  const availableDays = [];
+  const firstDay = new Date(`${startDay}T12:00:00+01:00`);
+  for (let offset = 0; offset < days; offset++) {
+    const day = tunisDateKey(new Date(firstDay.getTime() + offset * 24 * 60 * 60 * 1000));
+    const hasFreeSlot = availabilitySlots(profile, day).some((slot) => slot.start > new Date() && !hasBookingCollision(requests.docs.map((doc) => doc.data()), slot, activeStatuses));
+    if (hasFreeSlot) availableDays.push(day);
+  }
+  return {days: availableDays};
+});
+
+exports.changeRequestStatus = onCall({cors: true}, async (request) => {
   const userId = requireUser(request); const {requestId, status, refusalReason, quoteAmount} = request.data ?? {};
   if (typeof requestId !== 'string' || typeof status !== 'string') throw new HttpsError('invalid-argument', 'Mise à jour invalide.');
   const ref = database.collection('requests').doc(requestId);
   await database.runTransaction(async (transaction) => {
     const snapshot = await transaction.get(ref); if (!snapshot.exists) throw new HttpsError('not-found', 'Demande introuvable.');
     const data = snapshot.data(); const artisan = data.artisanId === userId; const client = data.clientId === userId;
-    const allowed = (artisan && ((data.status === 'pending' && ['accepted', 'refused'].includes(status)) || (data.status === 'accepted' && status === 'awaitingQuote') || (data.status === 'quoteAccepted' && status === 'inProgress') || (data.status === 'inProgress' && status === 'completed'))) || (client && ((data.status === 'pending' && status === 'cancelled') || (data.status === 'awaitingQuote' && status === 'quoteAccepted')));
+    const allowed = (artisan && ((data.status === 'pending' && ['awaitingQuote', 'refused'].includes(status)) || (['accepted', 'quoteAccepted'].includes(data.status) && status === 'inProgress') || (data.status === 'inProgress' && status === 'completed'))) || (client && ((data.status === 'pending' && status === 'cancelled') || (data.status === 'awaitingQuote' && ['accepted', 'quoteRefused'].includes(status))));
     if (!allowed) throw new HttpsError('permission-denied', 'Transition non autorisée.');
     const update = {status};
     if (status === 'refused' && typeof refusalReason === 'string') update.refusalReason = refusalReason.trim().slice(0, 280);

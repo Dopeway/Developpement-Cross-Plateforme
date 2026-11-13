@@ -4,15 +4,15 @@ import 'package:quickfix_tunisia/core/models/intervention_request.dart';
 void main() {
   test('autorise le cycle normal d’une intervention', () {
     expect(
-      RequestStatus.pending.canTransitionTo(RequestStatus.accepted),
+      RequestStatus.pending.canTransitionTo(RequestStatus.awaitingQuote),
       isTrue,
     );
     expect(
-      RequestStatus.accepted.canTransitionTo(RequestStatus.awaitingQuote),
+      RequestStatus.awaitingQuote.canTransitionTo(RequestStatus.accepted),
       isTrue,
     );
     expect(
-      RequestStatus.awaitingQuote.canTransitionTo(RequestStatus.quoteAccepted),
+      RequestStatus.accepted.canTransitionTo(RequestStatus.inProgress),
       isTrue,
     );
   });
@@ -32,6 +32,17 @@ void main() {
     );
   });
 
+  test('clôture la demande si le client refuse le devis', () {
+    expect(
+      RequestStatus.awaitingQuote.canTransitionTo(RequestStatus.quoteRefused),
+      isTrue,
+    );
+    expect(
+      RequestStatus.quoteRefused.canTransitionTo(RequestStatus.inProgress),
+      isFalse,
+    );
+  });
+
   test('interdit de revenir à un statut précédent', () {
     expect(
       RequestStatus.completed.canTransitionTo(RequestStatus.inProgress),
@@ -44,11 +55,11 @@ void main() {
   });
 
   test('propose uniquement la prochaine action artisan pertinente', () {
-    expect(RequestStatus.pending.nextArtisanStatus, RequestStatus.accepted);
     expect(
-      RequestStatus.accepted.nextArtisanStatus,
+      RequestStatus.pending.nextArtisanStatus,
       RequestStatus.awaitingQuote,
     );
+    expect(RequestStatus.accepted.nextArtisanStatus, RequestStatus.inProgress);
     expect(RequestStatus.inProgress.nextArtisanStatus, RequestStatus.completed);
     expect(RequestStatus.completed.nextArtisanStatus, isNull);
   });

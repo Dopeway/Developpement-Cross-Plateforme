@@ -3,6 +3,7 @@
   "private": true,
   "main": "index.js",
   "scripts": {
+    "test": "node --test",
     "migrate:artisan-catalog": "node scripts/migrate_artisan_catalog.js"
   },
   "engines": {"node": "20"},

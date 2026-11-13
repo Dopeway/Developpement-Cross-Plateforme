@@ -4,8 +4,10 @@ import 'booking_slot.dart';
 
 enum RequestStatus {
   pending,
-  accepted,
   awaitingQuote,
+  accepted,
+  quoteRefused,
+  // Conservé pour afficher les demandes créées avec l'ancien parcours.
   quoteAccepted,
   inProgress,
   completed,
@@ -17,10 +19,11 @@ enum RequestStatus {
 
 extension RequestStatusLabel on RequestStatus {
   String get label => switch (this) {
-    RequestStatus.pending => 'En attente de confirmation',
-    RequestStatus.accepted => 'Acceptée',
+    RequestStatus.pending => 'Demande reçue',
     RequestStatus.awaitingQuote => 'Devis à valider',
-    RequestStatus.quoteAccepted => 'Devis accepté',
+    RequestStatus.accepted => 'Intervention confirmée',
+    RequestStatus.quoteRefused => 'Devis refusé',
+    RequestStatus.quoteAccepted => 'Devis accepté (ancien parcours)',
     RequestStatus.inProgress => 'En cours',
     RequestStatus.completed => 'Terminée',
     RequestStatus.refused => 'Refusée',
@@ -30,15 +33,14 @@ extension RequestStatusLabel on RequestStatus {
   };
   bool canTransitionTo(RequestStatus next) => switch (this) {
     RequestStatus.pending =>
-      next == RequestStatus.accepted ||
+      next == RequestStatus.awaitingQuote ||
           next == RequestStatus.refused ||
           next == RequestStatus.cancelled ||
           next == RequestStatus.expired ||
           next == RequestStatus.rescheduleRequested,
-    RequestStatus.accepted =>
-      next == RequestStatus.awaitingQuote ||
-          next == RequestStatus.rescheduleRequested,
-    RequestStatus.awaitingQuote => next == RequestStatus.quoteAccepted,
+    RequestStatus.awaitingQuote =>
+      next == RequestStatus.accepted || next == RequestStatus.quoteRefused,
+    RequestStatus.accepted => next == RequestStatus.inProgress,
     RequestStatus.quoteAccepted => next == RequestStatus.inProgress,
     RequestStatus.inProgress => next == RequestStatus.completed,
     RequestStatus.rescheduleRequested =>
@@ -46,8 +48,8 @@ extension RequestStatusLabel on RequestStatus {
     _ => false,
   };
   RequestStatus? get nextArtisanStatus => switch (this) {
-    RequestStatus.pending => RequestStatus.accepted,
-    RequestStatus.accepted => RequestStatus.awaitingQuote,
+    RequestStatus.pending => RequestStatus.awaitingQuote,
+    RequestStatus.accepted ||
     RequestStatus.quoteAccepted => RequestStatus.inProgress,
     RequestStatus.inProgress => RequestStatus.completed,
     _ => null,
