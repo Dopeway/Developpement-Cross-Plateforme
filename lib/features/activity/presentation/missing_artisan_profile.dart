@@ -146,7 +146,6 @@ class _MissingArtisanProfileState extends State<MissingArtisanProfile> {
         trade: _trade!,
         area: _area!,
         startingPrice: int.parse(_priceController.text),
-        availableToday: true,
       );
     } on Exception {
       if (mounted) {

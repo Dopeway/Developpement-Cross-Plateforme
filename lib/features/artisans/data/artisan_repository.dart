@@ -93,13 +93,11 @@ class ArtisanRepository {
     required ArtisanTrade trade,
     required InterventionArea area,
     required int startingPrice,
-    required bool availableToday,
   }) => _artisans.doc(id).update({
     'name': name.trim(),
     'trade': trade.storageValue,
     'area': area.storageValue,
     'startingPrice': startingPrice,
-    'availableToday': availableToday,
   });
 
   Future<void> updateAvailability({

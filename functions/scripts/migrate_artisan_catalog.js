@@ -14,12 +14,17 @@ const areaByLegacyValue = new Map([
   ['ariana', 'ariana'],
   ['ben arous', 'ben_arous'],
   ['manouba', 'manouba'],
+  ['sfax', 'sfax'],
+  ['sousse', 'sousse'],
+  ['bizerte', 'bizerte'],
 ]);
 const supportedTrades = new Set([
   'plumber', 'electrician', 'air_conditioning_technician',
   'appliance_repairer', 'locksmith', 'painter', 'carpenter',
 ]);
-const supportedAreas = new Set(['tunis', 'ariana', 'ben_arous', 'manouba']);
+const supportedAreas = new Set([
+  'tunis', 'ariana', 'ben_arous', 'manouba', 'sfax', 'sousse', 'bizerte',
+]);
 
 function normalized(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';

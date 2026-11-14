@@ -61,7 +61,7 @@ Les règles Firestore interdisent à un artisan de se déclarer vérifié ou de 
 
 ### Catalogue des profils artisans
 
-Le métier et la zone d’intervention sont des valeurs contrôlées. L’application affiche leurs libellés français, mais Firestore stocke uniquement des identifiants stables : par exemple `plumber` et `tunis`. Les zones actuellement proposées sont Tunis, Ariana, Ben Arous et Manouba.
+Le métier et la ville d’intervention sont des valeurs contrôlées. L’application affiche leurs libellés français, mais Firestore stocke uniquement des identifiants stables : par exemple `plumber` et `tunis`. Les villes actuellement proposées sont Tunis, Ariana, Ben Arous, Manouba, Sfax, Sousse et Bizerte. La ville est obligatoire lors de la création d’un compte artisan et les clients peuvent filtrer les artisans par ville.
 
 Après le déploiement des règles, convertissez les fiches existantes depuis un environnement administrateur Firebase. La commande utilise les identifiants applicatifs par défaut ou le chemin indiqué dans `GOOGLE_APPLICATION_CREDENTIALS`; elle ne contient aucun secret.
 
@@ -71,6 +71,18 @@ npm run migrate:artisan-catalog
 ```
 
 La migration convertit notamment `Plomberie` / `Plombier` en `plumber` et `Tunis` en `tunis`. Elle liste et laisse intactes les fiches dont les valeurs ne sont pas reconnues afin de les corriger explicitement.
+
+### Comptes de démonstration
+
+Le script suivant crée ou met à jour 24 comptes artisans de démonstration, avec des villes, métiers et plannings différents. Il attend le mot de passe en variable d’environnement pour qu’aucun mot de passe ne soit versionné. Exécutez-le depuis un environnement Firebase Admin autorisé :
+
+```powershell
+cd functions
+$env:DEMO_ARTISANS_PASSWORD = 'votre-mot-de-passe-de-demo'
+npm run seed:demo-artisans
+```
+
+Le script est idempotent : une nouvelle exécution met à jour les mêmes 24 comptes.
 
 ## Lancer l’application
 
@@ -93,7 +105,6 @@ Les collections Firestore sont `users`, `artisans`, `requests` et `reviews`. Les
 ## Notifications
 
 L’application affiche une pastille de notifications Firestore. Les notifications système hors application (push) ne sont pas incluses : elles nécessiteraient la collecte explicite d’un jeton FCM et l’autorisation de l’utilisateur.
-
 ## Vérifications
 
 ```bash

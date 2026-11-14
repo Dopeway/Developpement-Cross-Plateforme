@@ -21,6 +21,7 @@ import '../models/chat_message.dart';
 import '../models/intervention_request.dart';
 import '../models/review.dart';
 import '../models/saved_address.dart';
+import '../services/availability_calculator.dart';
 
 class AppController extends ChangeNotifier {
   AppController({
@@ -200,7 +201,7 @@ class AppController extends ChangeNotifier {
   }) async {
     final artisan = await _artisanRepository.getArtisan(artisanId);
     if (artisan == null || !artisan.verified) return const [];
-    return _slotsFor(artisan, day);
+    return availableSlotsForArtisan(artisan: artisan, day: day);
   }
 
   Future<Set<String>> availableBookingDays({
@@ -212,57 +213,16 @@ class AppController extends ChangeNotifier {
     if (artisan == null || !artisan.verified) return const {};
     return {
       for (var index = 0; index < days; index++)
-        if (_slotsFor(artisan, startDay.add(Duration(days: index))).isNotEmpty)
+        if (availableSlotsForArtisan(
+          artisan: artisan,
+          day: startDay.add(Duration(days: index)),
+        ).isNotEmpty)
           _dateKey(startDay.add(Duration(days: index))),
     };
   }
 
   String _dateKey(DateTime day) =>
       '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
-
-  List<BookingSlot> _slotsFor(Artisan artisan, DateTime day) {
-    final key = _dateKey(day);
-    if (artisan.availabilityExceptions.any(
-      (exception) => exception.date == key && exception.unavailable,
-    )) {
-      return const [];
-    }
-    final Iterable<AvailabilityRule> rules = artisan.availabilityRules.isEmpty
-        ? [
-            AvailabilityRule(
-              weekday: day.weekday,
-              startMinutes: 9 * 60,
-              endMinutes: 17 * 60,
-            ),
-          ]
-        : artisan.availabilityRules.where(
-            (rule) => rule.weekday == day.weekday,
-          );
-    final duration = artisan.defaultDurationMinutes.clamp(15, 240).toInt();
-    final slots = <BookingSlot>[];
-    for (final rule in rules) {
-      for (
-        var minute = rule.startMinutes;
-        minute + duration <= rule.endMinutes;
-        minute += duration
-      ) {
-        final start = DateTime(
-          day.year,
-          day.month,
-          day.day,
-        ).add(Duration(minutes: minute));
-        if (!start.isAfter(DateTime.now())) continue;
-        slots.add(
-          BookingSlot(
-            start: start,
-            end: start.add(Duration(minutes: duration)),
-            timeZone: 'Africa/Tunis',
-          ),
-        );
-      }
-    }
-    return slots;
-  }
 
   Future<void> updateRequestStatus(
     String id,
@@ -395,7 +355,6 @@ class AppController extends ChangeNotifier {
     required ArtisanTrade trade,
     required InterventionArea area,
     required int startingPrice,
-    required bool availableToday,
   }) async {
     final user = _currentUser;
     if (user == null || user.role != UserRole.artisan) {
@@ -411,7 +370,6 @@ class AppController extends ChangeNotifier {
       trade: trade,
       area: area,
       startingPrice: startingPrice,
-      availableToday: availableToday,
     );
   }
 
@@ -453,7 +411,6 @@ class AppController extends ChangeNotifier {
     required ArtisanTrade trade,
     required InterventionArea area,
     required int startingPrice,
-    required bool availableToday,
   }) async {
     final user = _currentUser;
     if (user == null || user.role != UserRole.artisan) {

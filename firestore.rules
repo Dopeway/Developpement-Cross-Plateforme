@@ -4,6 +4,14 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function isOwner(id) { return signedIn() && request.auth.uid == id; }
     function isAdmin() { return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'; }
+    function hasSupportedArtisanCatalog() {
+      return request.resource.data.trade in [
+        'plumber', 'electrician', 'air_conditioning_technician',
+        'appliance_repairer', 'locksmith', 'painter', 'carpenter'
+      ] && request.resource.data.area in [
+        'tunis', 'ariana', 'ben_arous', 'manouba', 'sfax', 'sousse', 'bizerte'
+      ];
+    }
     // Firestore can prove these equalities from the client query constraints.
     function isParticipant() { return signedIn() && (request.auth.uid == resource.data.clientId || request.auth.uid == resource.data.artisanId); }
     function changesOnlyStatusAndQuote() {
@@ -50,8 +58,8 @@ service cloud.firestore {
 
     match /artisans/{artisanId} {
       allow read: if signedIn() && (resource.data.verified == true || isOwner(artisanId) || isAdmin());
-      allow create: if isAdmin() || (isOwner(artisanId) && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'artisan');
-      allow update: if isAdmin() || (isOwner(artisanId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'trade', 'area', 'startingPrice', 'availableToday', 'availabilityRules', 'availabilityExceptions', 'defaultDurationMinutes']));
+      allow create: if isAdmin() || (isOwner(artisanId) && hasSupportedArtisanCatalog() && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'artisan');
+      allow update: if isAdmin() || (isOwner(artisanId) && hasSupportedArtisanCatalog() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'trade', 'area', 'startingPrice', 'availableToday', 'availabilityRules', 'availabilityExceptions', 'defaultDurationMinutes']));
       allow delete: if isAdmin();
     }
 

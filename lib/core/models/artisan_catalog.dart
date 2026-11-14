@@ -33,7 +33,10 @@ enum InterventionArea {
   tunis('tunis', 'Tunis'),
   ariana('ariana', 'Ariana'),
   benArous('ben_arous', 'Ben Arous'),
-  manouba('manouba', 'Manouba');
+  manouba('manouba', 'Manouba'),
+  sfax('sfax', 'Sfax'),
+  sousse('sousse', 'Sousse'),
+  bizerte('bizerte', 'Bizerte');
 
   const InterventionArea(this.storageValue, this.label);
 

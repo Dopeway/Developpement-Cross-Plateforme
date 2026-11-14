@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../app/app_routes.dart';
 import '../../../core/models/artisan.dart';
 import '../../../core/models/review.dart';
+import '../../../core/services/availability_calculator.dart';
 import '../../../core/state/app_scope.dart';
 import '../../../core/widgets/responsive_page_layout.dart';
 
@@ -51,11 +52,11 @@ class ArtisanDetailPage extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.schedule_outlined),
             title: Text(
-              artisan.availableToday
+              hasAvailableSlotOn(artisan: artisan, day: DateTime.now())
                   ? 'Disponible aujourd’hui'
-                  : 'Prochain créneau demain',
+                  : 'Aucun créneau restant aujourd’hui',
             ),
-            subtitle: const Text('Créneau à confirmer avec l’artisan'),
+            subtitle: const Text('Calculé à partir du planning de l’artisan'),
           ),
           const SizedBox(height: 16),
           Text('Avis récents', style: Theme.of(context).textTheme.titleLarge),

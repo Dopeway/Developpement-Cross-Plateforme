@@ -3,8 +3,37 @@ import 'package:flutter/material.dart';
 import '../../../app/app_routes.dart';
 import '../../../core/models/artisan.dart';
 import '../../../core/models/artisan_catalog.dart';
+import '../../../core/services/availability_calculator.dart';
 import '../../../core/state/app_scope.dart';
 import '../../../core/widgets/request_status_widgets.dart';
+
+List<Artisan> filterArtisans({
+  required List<Artisan> artisans,
+  required String query,
+  ArtisanTrade? trade,
+  InterventionArea? area,
+  required bool availableOnly,
+  DateTime? now,
+}) {
+  final normalizedQuery = query.toLowerCase();
+  final referenceTime = now ?? DateTime.now();
+  return artisans.where((artisan) {
+    final matchesQuery =
+        normalizedQuery.isEmpty ||
+        artisan.name.toLowerCase().contains(normalizedQuery) ||
+        artisan.trade.label.toLowerCase().contains(normalizedQuery) ||
+        artisan.area.label.toLowerCase().contains(normalizedQuery);
+    return matchesQuery &&
+        (trade == null || artisan.trade == trade) &&
+        (area == null || artisan.area == area) &&
+        (!availableOnly ||
+            hasAvailableSlotOn(
+              artisan: artisan,
+              day: referenceTime,
+              now: referenceTime,
+            ));
+  }).toList();
+}
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,7 +44,20 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   String _query = '';
   ArtisanTrade? _trade;
+  InterventionArea? _area;
   bool _availableOnly = false;
+
+  bool get _hasActiveFilters =>
+      _query.isNotEmpty || _trade != null || _area != null || _availableOnly;
+
+  void _clearFilters() {
+    setState(() {
+      _query = '';
+      _trade = null;
+      _area = null;
+      _availableOnly = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,18 +79,15 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildContent(BuildContext context, List<Artisan> allArtisans) {
-    final artisans = allArtisans.where((artisan) {
-      final query = _query.toLowerCase();
-      final matchesQuery =
-          query.isEmpty ||
-          artisan.name.toLowerCase().contains(query) ||
-          artisan.trade.label.toLowerCase().contains(query) ||
-          artisan.area.label.toLowerCase().contains(query);
-      return matchesQuery &&
-          (_trade == null || artisan.trade == _trade) &&
-          (!_availableOnly || artisan.availableToday);
-    }).toList();
+    final artisans = filterArtisans(
+      artisans: allArtisans,
+      query: _query,
+      trade: _trade,
+      area: _area,
+      availableOnly: _availableOnly,
+    );
     final trades = allArtisans.map((artisan) => artisan.trade).toSet().toList();
+    final areas = allArtisans.map((artisan) => artisan.area).toSet().toList();
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
       children: [
@@ -93,16 +132,23 @@ class _HomePageState extends State<HomePage> {
         ),
         const SizedBox(height: 24),
         Text(
-          'Services populaires',
+          'Affiner la recherche',
           style: Theme.of(context).textTheme.titleLarge,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 4),
+        Text(
+          'Choisissez un métier, une zone ou une disponibilité.',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 16),
+        Text('Métier', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
             FilterChip(
-              label: const Text('Tous'),
+              label: const Text('Tous les métiers'),
               selected: _trade == null,
               onSelected: (_) => setState(() => _trade = null),
             ),
@@ -114,31 +160,54 @@ class _HomePageState extends State<HomePage> {
                     setState(() => _trade = selected ? trade : null),
               ),
             ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Zone d’intervention',
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
             FilterChip(
-              avatar: const Icon(Icons.schedule_outlined),
-              label: const Text('Disponible aujourd’hui'),
-              selected: _availableOnly,
-              onSelected: (selected) =>
-                  setState(() => _availableOnly = selected),
+              label: const Text('Toutes les zones'),
+              selected: _area == null,
+              onSelected: (_) => setState(() => _area = null),
+            ),
+            ...areas.map(
+              (area) => FilterChip(
+                label: Text(area.label),
+                selected: _area == area,
+                onSelected: (selected) =>
+                    setState(() => _area = selected ? area : null),
+              ),
             ),
           ],
+        ),
+        const SizedBox(height: 12),
+        FilterChip(
+          avatar: const Icon(Icons.schedule_outlined),
+          showCheckmark: false,
+          label: const Text('Disponible aujourd’hui'),
+          selected: _availableOnly,
+          onSelected: (selected) => setState(() => _availableOnly = selected),
         ),
         const SizedBox(height: 28),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Disponibles près de vous',
+              '${artisans.length} artisan${artisans.length > 1 ? 's' : ''} trouvé${artisans.length > 1 ? 's' : ''}',
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            TextButton(
-              onPressed: () => setState(() {
-                _query = '';
-                _trade = null;
-                _availableOnly = false;
-              }),
-              child: const Text('Voir tout'),
-            ),
+            if (_hasActiveFilters)
+              TextButton(
+                onPressed: _clearFilters,
+                child: const Text('Réinitialiser'),
+              ),
           ],
         ),
         if (artisans.isEmpty)
@@ -151,11 +220,7 @@ class _HomePageState extends State<HomePage> {
                   const Text('Aucun artisan ne correspond à votre recherche.'),
                   const SizedBox(height: 12),
                   OutlinedButton(
-                    onPressed: () => setState(() {
-                      _query = '';
-                      _trade = null;
-                      _availableOnly = false;
-                    }),
+                    onPressed: _clearFilters,
                     child: const Text('Réinitialiser les filtres'),
                   ),
                 ],

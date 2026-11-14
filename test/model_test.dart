@@ -112,6 +112,7 @@ void main() {
   test('lit les anciennes valeurs métier et zone pendant la migration', () {
     expect(ArtisanTrade.fromStorageValue('Plomberie'), ArtisanTrade.plumber);
     expect(InterventionArea.fromStorageValue('Tunis'), InterventionArea.tunis);
+    expect(InterventionArea.fromStorageValue('Sfax'), InterventionArea.sfax);
   });
 
   test('désérialise une notification persistée', () {

@@ -4,7 +4,8 @@
   "main": "index.js",
   "scripts": {
     "test": "node --test",
-    "migrate:artisan-catalog": "node scripts/migrate_artisan_catalog.js"
+    "migrate:artisan-catalog": "node scripts/migrate_artisan_catalog.js",
+    "seed:demo-artisans": "node scripts/seed_demo_artisans.js"
   },
   "engines": {"node": "20"},
   "dependencies": {

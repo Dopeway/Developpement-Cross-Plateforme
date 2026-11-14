@@ -199,7 +199,6 @@ class _Dashboard extends StatelessWidget {
         trade: input.trade,
         area: input.area,
         startingPrice: input.startingPrice,
-        availableToday: input.availableToday,
       );
       if (context.mounted) {
         ScaffoldMessenger.of(context)
@@ -253,14 +252,12 @@ class _ProfileInput {
     required this.trade,
     required this.area,
     required this.startingPrice,
-    required this.availableToday,
   });
 
   final String name;
   final ArtisanTrade trade;
   final InterventionArea area;
   final int startingPrice;
-  final bool availableToday;
 }
 
 class _ProfileDialog extends StatefulWidget {
@@ -282,7 +279,6 @@ class _ProfileDialogState extends State<_ProfileDialog> {
   late final TextEditingController _price = TextEditingController(
     text: '${widget.artisan.startingPrice}',
   );
-  late bool _available = widget.artisan.availableToday;
 
   @override
   void dispose() {
@@ -350,12 +346,6 @@ class _ProfileDialogState extends State<_ProfileDialog> {
                     : null;
               },
             ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Disponible aujourd’hui'),
-              value: _available,
-              onChanged: (value) => setState(() => _available = value),
-            ),
           ],
         ),
       ),
@@ -376,7 +366,6 @@ class _ProfileDialogState extends State<_ProfileDialog> {
               trade: _trade,
               area: _area,
               startingPrice: price,
-              availableToday: _available,
             ),
           );
         },
