@@ -5,10 +5,12 @@ Application Flutter de mise en relation entre clients et artisans pour le dépan
 ## Expériences par rôle
 
 - **Client** : recherche d’un artisan vérifié, consultation de sa fiche, création et suivi d’une demande, annulation avant acceptation et dépôt d’un avis après intervention terminée.
-- **Artisan** : tableau de bord des demandes, gestion du planning et des indisponibilités, acceptation/refus, progression d’une intervention jusqu’à sa terminaison et consultation de son profil professionnel.
+- **Artisan** : tableau de bord des demandes, gestion du planning et des indisponibilités, acceptation/refus, progression d’une intervention jusqu’à sa terminaison, rapport d’intervention et consultation de son profil professionnel.
 - **Administrateur** : statistiques, validation ou refus des profils artisans, consultation des utilisateurs et correction exceptionnelle des statuts de demande.
 
-Le devis est une étape de la même demande : `pending` → `awaitingQuote` → `accepted` → `inProgress` → `completed`. Le client peut refuser le devis (`quoteRefused`), ce qui clôture définitivement la demande ; l’artisan ne peut donc plus démarrer l’intervention. Une demande reçue peut aussi être refusée par l’artisan ou annulée par le client.
+Le devis est une étape de la même demande : `pending` → `awaitingQuote` → `accepted` → `inProgress` → `completed`. Une fois l’intervention commencée, l’artisan peut enregistrer un brouillon de rapport puis doit décrire les travaux réalisés pour la clôturer. Le rapport peut contenir un diagnostic, les matériaux utilisés et des conseils. Le client consulte ce récapitulatif depuis l’historique de sa demande ; le devis accepté reste inchangé. Le client peut refuser le devis (`quoteRefused`), ce qui clôture définitivement la demande ; l’artisan ne peut donc plus démarrer l’intervention. Une demande reçue peut aussi être refusée par l’artisan ou annulée par le client.
+
+Après la clôture, l’artisan peut préparer un **projet de facture** à partir du devis accepté et du rapport. Il renseigne son nom ou sa raison sociale, son adresse professionnelle, son matricule fiscal et le taux de TVA applicable. L’application affiche un aperçu PDF avant de figer le document ; le client et l’artisan peuvent ensuite le consulter et le télécharger, y compris sur le Web. Le montant TTC reste celui du devis accepté. Les données sont enregistrées une seule fois dans Firestore et le PDF est généré à la demande sur l’appareil : aucun fichier PDF n’est stocké dans Firebase Storage. Le document porte la mention « Projet de facture - non validé par Tunisie TradeNet ». Il ne constitue pas une facture électronique officielle et aucune signature ou référence fiscale n’est inventée.
 
 Le chat est disponible uniquement au client et à l’artisan concerné, après acceptation et pendant l’intervention. Il permet de préciser l’accès, l’horaire ou le besoin ; il est fermé lorsque l’intervention est terminée, refusée ou annulée.
 
@@ -19,6 +21,8 @@ Les clients peuvent enregistrer des adresses dans leur compte. Elles sont stock�
 L’artisan publie ses plages habituelles, la durée des créneaux et ses journées d’absence depuis l’onglet **Planning**. Le client voit uniquement les jours ouverts et les créneaux calculés à partir de ce planning, puis envoie une demande que l’artisan accepte ou refuse.
 
 L'adresse complète est stockée dans un document privé séparé. Avant l'acceptation, l'artisan ne voit que sa zone d'intervention ; l'adresse est révélée à l'artisan après acceptation. Les demandes ne sont lisibles que par leur client, leur artisan ou un administrateur.
+
+Pour les nouvelles demandes, `requests/{id}` ne contient que la ville ; l’adresse complète est dans `requests/{id}/private/location`. Les anciennes demandes qui contiennent déjà l’adresse complète dans le document principal nécessitent une migration administrative si elles doivent bénéficier de la même protection.
 
 ## Prérequis
 
@@ -97,10 +101,12 @@ flutter run
 - `lib/features/users/data` : profils et rôles Firestore ;
 - `lib/features/artisans/data` : catalogue temps réel des artisans ;
 - `lib/features/availability/presentation` : gestion du planning artisan ;
-- `lib/features/request/data` : création, lecture et mise à jour des demandes ;
+- `lib/features/request/data` : demandes et génération locale du PDF de facturation ;
 - `lib/core/state/app_controller.dart` : état de session léger partagé par l’interface.
 
 Les collections Firestore sont `users`, `artisans`, `requests` et `reviews`. Les messages sont stockés dans `requests/{requestId}/messages`. Les règles dans `firestore.rules` limitent les lectures et modifications au client, à l’artisan concerné ou à l’administrateur. Les contrôles de transition sont également appliqués côté serveur.
+
+Les projets de facture sont conservés dans `requests/{requestId}/billing/document` et deviennent non modifiables après création. Les packages `pdf` et `printing` servent à créer et prévisualiser le document ; les polices Lato livrées avec l’application sont distribuées sous licence OFL (`assets/fonts/OFL-Lato.txt`). Aucun service Firebase payant ni stockage binaire Firestore n’est nécessaire pour ce parcours.
 
 ## Notifications
 

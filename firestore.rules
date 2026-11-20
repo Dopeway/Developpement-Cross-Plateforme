@@ -14,8 +14,8 @@ service cloud.firestore {
     }
     // Firestore can prove these equalities from the client query constraints.
     function isParticipant() { return signedIn() && (request.auth.uid == resource.data.clientId || request.auth.uid == resource.data.artisanId); }
-    function changesOnlyStatusAndQuote() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'quoteAmount']);
+    function changesOnlyWorkflowFields() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'quoteAmount', 'interventionReport']);
     }
     function quoteIsUnchanged() {
       return request.resource.data.quoteAmount == resource.data.quoteAmount;
@@ -28,12 +28,24 @@ service cloud.firestore {
           && request.resource.data.status in ['awaitingQuote', 'refused'])
         || (resource.data.status in ['accepted', 'quoteAccepted']
           && request.resource.data.status == 'inProgress')
-        || (resource.data.status == 'inProgress'
-          && request.resource.data.status == 'completed')
       ) && (request.resource.data.status == 'awaitingQuote'
         ? (request.resource.data.quoteAmount is int
           && request.resource.data.quoteAmount >= 0)
         : quoteIsUnchanged());
+    }
+    function artisanReportChange() {
+      return isArtisanForRequest()
+        && resource.data.status == 'inProgress'
+        && request.resource.data.status == 'inProgress'
+        && quoteIsUnchanged();
+    }
+    function artisanCompletionWithReport() {
+      return isArtisanForRequest()
+        && resource.data.status == 'inProgress'
+        && request.resource.data.status == 'completed'
+        && quoteIsUnchanged()
+        && request.resource.data.interventionReport.workPerformed is string
+        && request.resource.data.interventionReport.workPerformed.size() >= 10;
     }
     function clientWorkflowChange() {
       return isClientForRequest() && (
@@ -67,18 +79,98 @@ service cloud.firestore {
       allow read: if isParticipant() || isAdmin();
       allow create: if signedIn()
         && request.resource.data.clientId == request.auth.uid
-        && request.resource.data.status == 'pending';
+        && request.resource.data.status == 'pending'
+        && request.resource.data.keys().hasOnly([
+          'service', 'artisanId', 'artisanName', 'clientId', 'clientName',
+          'description', 'address', 'date', 'status', 'createdAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'service', 'artisanId', 'artisanName', 'clientId', 'clientName',
+          'description', 'address', 'date', 'status', 'createdAt'
+        ])
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.address in [
+          'Tunis', 'Ariana', 'Ben Arous', 'Manouba', 'Sfax', 'Sousse', 'Bizerte'
+        ]
+        && existsAfter(/databases/$(database)/documents/requests/$(requestId)/private/location);
       allow update: if isAdmin() || (
-        changesOnlyStatusAndQuote()
-        && (artisanWorkflowChange() || clientWorkflowChange())
+        changesOnlyWorkflowFields()
+        && (artisanWorkflowChange() || clientWorkflowChange() || artisanReportChange() || artisanCompletionWithReport())
       );
       allow delete: if isAdmin();
       match /private/{document} {
+        allow create: if document == 'location'
+          && signedIn()
+          && getAfter(/databases/$(database)/documents/requests/$(requestId)).data.clientId == request.auth.uid
+          && getAfter(/databases/$(database)/documents/requests/$(requestId)).data.status == 'pending'
+          && request.resource.data.keys().hasOnly(['address'])
+          && request.resource.data.address is string
+          && request.resource.data.address.size() >= 5
+          && request.resource.data.address.size() <= 200;
         allow read: if isAdmin()
           || (signedIn() && request.auth.uid == get(/databases/$(database)/documents/requests/$(requestId)).data.clientId)
           || (signedIn()
             && request.auth.uid == get(/databases/$(database)/documents/requests/$(requestId)).data.artisanId
-            && get(/databases/$(database)/documents/requests/$(requestId)).data.status in ['accepted', 'awaitingQuote', 'quoteAccepted', 'inProgress', 'completed']);
+            && get(/databases/$(database)/documents/requests/$(requestId)).data.status in ['accepted', 'quoteAccepted', 'inProgress', 'completed']);
+        allow update, delete: if false;
+      }
+      match /billing/{documentId} {
+        function sourceRequest() {
+          return get(/databases/$(database)/documents/requests/$(requestId)).data;
+        }
+        allow read: if signedIn()
+          && (request.auth.uid == sourceRequest().clientId
+            || request.auth.uid == sourceRequest().artisanId);
+        allow create: if documentId == 'document'
+          && signedIn()
+          && request.auth.uid == sourceRequest().artisanId
+          && sourceRequest().status == 'completed'
+          && sourceRequest().quoteAmount is int
+          && sourceRequest().interventionReport.workPerformed is string
+          && request.resource.data.keys().hasOnly([
+            'requestId', 'artisanId', 'clientId', 'issuerName',
+            'issuerAddress', 'taxId', 'vatRate', 'clientName',
+            'clientAddress', 'service', 'workPerformed', 'serviceDate',
+            'diagnosis', 'materials', 'clientAdvice',
+            'totalMillimes', 'createdAt'
+          ])
+          && request.resource.data.keys().hasAll([
+            'requestId', 'artisanId', 'clientId', 'issuerName',
+            'issuerAddress', 'taxId', 'vatRate', 'clientName',
+            'clientAddress', 'service', 'workPerformed', 'serviceDate',
+            'diagnosis', 'materials', 'clientAdvice',
+            'totalMillimes', 'createdAt'
+          ])
+          && request.resource.data.requestId == requestId
+          && request.resource.data.artisanId == sourceRequest().artisanId
+          && request.resource.data.clientId == sourceRequest().clientId
+          && request.resource.data.clientName == sourceRequest().clientName
+          && request.resource.data.clientAddress == (
+            exists(/databases/$(database)/documents/requests/$(requestId)/private/location)
+              ? get(/databases/$(database)/documents/requests/$(requestId)/private/location).data.address
+              : sourceRequest().address
+          )
+          && request.resource.data['service'] == sourceRequest()['service']
+          && request.resource.data.workPerformed == sourceRequest().interventionReport.workPerformed
+          && request.resource.data.serviceDate == sourceRequest().date
+          && request.resource.data.diagnosis == sourceRequest().interventionReport.get('diagnosis', '')
+          && request.resource.data.materials == sourceRequest().interventionReport.get('materials', '')
+          && request.resource.data.clientAdvice == sourceRequest().interventionReport.get('clientAdvice', '')
+          && request.resource.data.totalMillimes == sourceRequest().quoteAmount * 1000
+          && request.resource.data.issuerName is string
+          && request.resource.data.issuerName.size() >= 2
+          && request.resource.data.issuerName.size() <= 120
+          && request.resource.data.issuerAddress is string
+          && request.resource.data.issuerAddress.size() >= 5
+          && request.resource.data.issuerAddress.size() <= 200
+          && request.resource.data.taxId is string
+          && request.resource.data.taxId.size() >= 1
+          && request.resource.data.taxId.size() <= 32
+          && request.resource.data.vatRate is int
+          && request.resource.data.vatRate >= 0
+          && request.resource.data.vatRate <= 100
+          && request.resource.data.createdAt == request.time;
+        allow update, delete: if false;
       }
       match /messages/{messageId} {
         allow read: if isParticipant() && get(/databases/$(database)/documents/requests/$(requestId)).data.status in ['accepted', 'awaitingQuote', 'quoteAccepted', 'inProgress'];

@@ -6,6 +6,7 @@ import 'package:quickfix_tunisia/core/models/artisan.dart';
 import 'package:quickfix_tunisia/core/models/artisan_catalog.dart';
 import 'package:quickfix_tunisia/core/models/chat_message.dart';
 import 'package:quickfix_tunisia/core/models/intervention_request.dart';
+import 'package:quickfix_tunisia/core/models/intervention_report.dart';
 import 'package:quickfix_tunisia/features/request/data/request_repository.dart';
 
 void main() {
@@ -64,6 +65,35 @@ void main() {
     expect(request.id, 'request-1');
     expect(request.status, RequestStatus.pending);
     expect(request.toJson()['status'], 'pending');
+  });
+
+  test('affiche un créneau ISO dans un format lisible', () {
+    const request = InterventionRequest(
+      id: 'request-1',
+      service: 'Plomberie',
+      artisanId: 'artisan-1',
+      artisanName: 'Sami Ben Salem',
+      clientId: 'client-1',
+      clientName: 'Amira Khalfallah',
+      description: 'Fuite sous évier.',
+      address: 'Tunis',
+      date: '2026-11-15T16:30:00.000',
+      status: RequestStatus.pending,
+    );
+
+    expect(request.displayDate, '15/11/2026 à 16:30');
+  });
+
+  test('sérialise un rapport d’intervention', () {
+    final report = InterventionReport.fromJson(<String, Object?>{
+      'workPerformed': 'Joint remplacé et étanchéité testée.',
+      'diagnosis': 'Le joint était usé.',
+      'completedAt': Timestamp.fromDate(DateTime(2026, 11, 7)),
+    });
+
+    expect(report.workPerformed, 'Joint remplacé et étanchéité testée.');
+    expect(report.completedAt, DateTime(2026, 11, 7));
+    expect(report.toJson()['diagnosis'], 'Le joint était usé.');
   });
 
   test('sérialise un profil artisan', () {

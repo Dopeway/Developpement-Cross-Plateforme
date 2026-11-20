@@ -3,13 +3,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/models/app_user.dart';
 import '../../../core/models/artisan.dart';
 import '../../../core/models/intervention_request.dart';
+import '../../../core/models/intervention_report.dart';
 
 class RequestRepository {
   RequestRepository({FirebaseFirestore? firestore})
-    : _requests = (firestore ?? FirebaseFirestore.instance).collection(
+    : _firestore = firestore ?? FirebaseFirestore.instance,
+      _requests = (firestore ?? FirebaseFirestore.instance).collection(
         'requests',
       );
 
+  final FirebaseFirestore _firestore;
   final CollectionReference<Map<String, dynamic>> _requests;
 
   Stream<List<InterventionRequest>> watchForUser(AppUser user) {
@@ -52,18 +55,35 @@ class RequestRepository {
     required String description,
     required String address,
     required String slot,
-  }) => _requests.add({
-    'service': artisan.trade.label,
-    'artisanId': artisan.id,
-    'artisanName': artisan.name,
-    'clientId': client.id,
-    'clientName': client.name,
-    'description': description.trim(),
-    'address': address.trim(),
-    'date': slot,
-    'status': RequestStatus.pending.name,
-    'createdAt': FieldValue.serverTimestamp(),
-  });
+  }) async {
+    final document = _requests.doc();
+    final batch = _firestore.batch();
+    batch.set(document, {
+      'service': artisan.trade.label,
+      'artisanId': artisan.id,
+      'artisanName': artisan.name,
+      'clientId': client.id,
+      'clientName': client.name,
+      'description': description.trim(),
+      'address': artisan.area.label,
+      'date': slot,
+      'status': RequestStatus.pending.name,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    batch.set(document.collection('private').doc('location'), {
+      'address': address.trim(),
+    });
+    await batch.commit();
+  }
+
+  Future<String> getFullAddress(InterventionRequest request) async {
+    final location = await _requests
+        .doc(request.id)
+        .collection('private')
+        .doc('location')
+        .get();
+    return location.data()?['address'] as String? ?? request.address;
+  }
 
   Future<void> updateStatus({
     required String id,
@@ -73,6 +93,23 @@ class RequestRepository {
     'status': status.name,
     'quoteAmount': ?quoteAmount,
   });
+
+  Future<void> saveInterventionReport({
+    required String id,
+    required InterventionReport report,
+  }) => _requests.doc(id).update({'interventionReport': report.toJson()});
+
+  Future<void> completeIntervention({
+    required String id,
+    required InterventionReport report,
+  }) {
+    final reportData = report.toJson();
+    reportData['completedAt'] = FieldValue.serverTimestamp();
+    return _requests.doc(id).update({
+      'status': RequestStatus.completed.name,
+      'interventionReport': reportData,
+    });
+  }
 
   Future<void> correctStatus({
     required String id,

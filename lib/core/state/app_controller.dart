@@ -9,6 +9,7 @@ import '../../features/auth/data/profile_registration_repository.dart';
 import '../../features/chat/data/chat_repository.dart';
 import '../../features/notifications/data/notification_repository.dart';
 import '../../features/request/data/request_repository.dart';
+import '../../features/request/data/billing_repository.dart';
 import '../../features/reviews/data/review_repository.dart';
 import '../../features/users/data/user_repository.dart';
 import '../models/app_user.dart';
@@ -19,6 +20,8 @@ import '../models/availability.dart';
 import '../models/artisan_catalog.dart';
 import '../models/chat_message.dart';
 import '../models/intervention_request.dart';
+import '../models/intervention_report.dart';
+import '../models/billing_document.dart';
 import '../models/review.dart';
 import '../models/saved_address.dart';
 import '../services/availability_calculator.dart';
@@ -30,6 +33,7 @@ class AppController extends ChangeNotifier {
     UserRepository? userRepository,
     ArtisanRepository? artisanRepository,
     RequestRepository? requestRepository,
+    BillingRepository? billingRepository,
     ChatRepository? chatRepository,
     ReviewRepository? reviewRepository,
     NotificationRepository? notificationRepository,
@@ -39,6 +43,7 @@ class AppController extends ChangeNotifier {
        _userRepository = userRepository ?? UserRepository(),
        _artisanRepository = artisanRepository ?? ArtisanRepository(),
        _requestRepository = requestRepository ?? RequestRepository(),
+       _billingRepository = billingRepository ?? BillingRepository(),
        _chatRepository = chatRepository ?? ChatRepository(),
        _reviewRepository = reviewRepository ?? ReviewRepository(),
        _notificationRepository =
@@ -51,6 +56,7 @@ class AppController extends ChangeNotifier {
   final UserRepository _userRepository;
   final ArtisanRepository _artisanRepository;
   final RequestRepository _requestRepository;
+  final BillingRepository _billingRepository;
   final ChatRepository _chatRepository;
   final ReviewRepository _reviewRepository;
   final NotificationRepository _notificationRepository;
@@ -301,8 +307,127 @@ class AppController extends ChangeNotifier {
     );
   }
 
+  Future<void> saveInterventionReport({
+    required InterventionRequest request,
+    required InterventionReport report,
+  }) async {
+    _ensureArtisanCanEditReport(request);
+    _validateInterventionReport(report, requireWorkPerformed: false);
+    await _requestRepository.saveInterventionReport(
+      id: request.id,
+      report: report,
+    );
+  }
+
+  Future<void> completeIntervention({
+    required InterventionRequest request,
+    required InterventionReport report,
+  }) async {
+    _ensureArtisanCanEditReport(request);
+    _validateInterventionReport(report, requireWorkPerformed: true);
+    await _requestRepository.completeIntervention(
+      id: request.id,
+      report: report,
+    );
+  }
+
+  void _ensureArtisanCanEditReport(InterventionRequest request) {
+    final user = _currentUser;
+    if (user == null ||
+        user.role != UserRole.artisan ||
+        user.id != request.artisanId ||
+        request.status != RequestStatus.inProgress) {
+      throw StateError('Ce rapport ne peut plus être modifié.');
+    }
+  }
+
+  void _validateInterventionReport(
+    InterventionReport report, {
+    required bool requireWorkPerformed,
+  }) {
+    final workPerformed = report.workPerformed.trim();
+    if (requireWorkPerformed && workPerformed.length < 10) {
+      throw ArgumentError(
+        'Décrivez les travaux réalisés en au moins 10 caractères.',
+      );
+    }
+    if (workPerformed.length > 2000 ||
+        _tooLong(report.diagnosis) ||
+        _tooLong(report.materials) ||
+        _tooLong(report.clientAdvice)) {
+      throw ArgumentError('Le rapport contient une information invalide.');
+    }
+  }
+
+  bool _tooLong(String? value) => value != null && value.trim().length > 1000;
+
   Future<InterventionRequest?> getRequest(String id) =>
       _requestRepository.get(id);
+
+  Future<String> getRequestFullAddress(InterventionRequest request) {
+    final user = _currentUser;
+    if (user == null ||
+        (user.id != request.clientId &&
+            (user.id != request.artisanId ||
+                ![
+                  RequestStatus.accepted,
+                  RequestStatus.quoteAccepted,
+                  RequestStatus.inProgress,
+                  RequestStatus.completed,
+                ].contains(request.status)))) {
+      throw StateError('Adresse non disponible.');
+    }
+    return _requestRepository.getFullAddress(request);
+  }
+
+  Future<BillingDocument?> getBillingDocument(
+    InterventionRequest request,
+  ) async {
+    final user = _currentUser;
+    if (user == null ||
+        (user.id != request.artisanId && user.id != request.clientId)) {
+      throw StateError('Ce document n’est pas disponible.');
+    }
+    return _billingRepository.get(request.id);
+  }
+
+  Future<void> createBillingDocument(BillingDocument document) async {
+    final user = _currentUser;
+    final request = await _requestRepository.get(document.requestId);
+    if (user == null ||
+        user.role != UserRole.artisan ||
+        request == null ||
+        request.artisanId != user.id ||
+        request.status != RequestStatus.completed ||
+        request.quoteAmount == null ||
+        request.interventionReport == null) {
+      throw StateError('Le projet de facture ne peut pas être créé.');
+    }
+    final fullAddress = await _requestRepository.getFullAddress(request);
+    if (document.artisanId != request.artisanId ||
+        document.clientId != request.clientId ||
+        document.clientName != request.clientName ||
+        document.clientAddress != fullAddress ||
+        document.service != request.service ||
+        document.workPerformed != request.interventionReport!.workPerformed ||
+        document.serviceDate != request.date ||
+        document.diagnosis != (request.interventionReport!.diagnosis ?? '') ||
+        document.materials != (request.interventionReport!.materials ?? '') ||
+        document.clientAdvice !=
+            (request.interventionReport!.clientAdvice ?? '') ||
+        document.totalMillimes != request.quoteAmount! * 1000 ||
+        document.vatRate < 0 ||
+        document.vatRate > 100 ||
+        document.issuerName.trim().length < 2 ||
+        document.issuerAddress.trim().length < 5 ||
+        document.taxId.trim().isEmpty) {
+      throw ArgumentError('Les informations de facturation sont invalides.');
+    }
+    if (await _billingRepository.get(request.id) != null) {
+      throw StateError('Un document existe déjà pour cette demande.');
+    }
+    await _billingRepository.create(document);
+  }
 
   Future<void> sendChatMessage({
     required InterventionRequest request,

@@ -121,8 +121,8 @@ class _RequestsPageState extends State<RequestsPage> {
             const SizedBox(height: 8),
             Text(
               role == UserRole.artisan
-                  ? '${request.clientName}\n${request.address}\n${request.date}'
-                  : '${request.artisanName}\n${request.address}\n${request.date}',
+                  ? '${request.clientName}\n${request.address}\n${request.displayDate}'
+                  : '${request.artisanName}\n${request.address}\n${request.displayDate}',
             ),
             const SizedBox(height: 12),
             Text(request.description),
@@ -263,7 +263,7 @@ class _RequestsPageState extends State<RequestsPage> {
         content: Text(
           request.quoteAmount == null
               ? 'Le montant indiqué par l’artisan sera accepté.'
-              : 'Vous acceptez un devis de ${request.quoteAmount} DT.',
+              : 'Vous acceptez un devis de ${request.quoteAmount} DT TTC.',
         ),
         actions: [
           TextButton(

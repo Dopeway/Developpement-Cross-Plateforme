@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import '../../../core/models/artisan.dart';
 import '../../../core/models/booking_slot.dart';
@@ -260,6 +261,12 @@ class _RequestFormPageState extends State<RequestFormPage> {
         const SnackBar(content: Text('Créneau bloqué pendant une heure.')),
       );
       Navigator.pop(context);
+    } on FirebaseException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_firebaseErrorMessage(error))));
+      }
     } on Exception {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -272,6 +279,14 @@ class _RequestFormPageState extends State<RequestFormPage> {
       if (mounted) setState(() => _submitting = false);
     }
   }
+
+  String _firebaseErrorMessage(FirebaseException error) => switch (error.code) {
+    'permission-denied' =>
+      'Réservation refusée : vérifiez que les règles Firestore sont déployées.',
+    'unauthenticated' => 'Votre session a expiré. Reconnectez-vous.',
+    'unavailable' => 'Service temporairement indisponible. Réessayez.',
+    _ => 'La réservation n’a pas pu être envoyée.',
+  };
 
   String _dateKey(DateTime value) =>
       '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';

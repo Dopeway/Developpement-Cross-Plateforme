@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'booking_slot.dart';
+import 'intervention_report.dart';
 
 enum RequestStatus {
   pending,
@@ -80,10 +81,12 @@ class InterventionRequest {
     this.addressLabel,
     this.quoteAmount,
     this.refusalReason,
+    this.interventionReport,
   });
   factory InterventionRequest.fromJson(Map<String, Object?> json) {
     final correction = json['adminCorrection'];
     final booking = json['booking'];
+    final interventionReport = json['interventionReport'];
     return InterventionRequest(
       id: json['id']! as String,
       service: json['service']! as String,
@@ -108,6 +111,11 @@ class InterventionRequest {
       addressLabel: json['addressLabel'] as String?,
       quoteAmount: json['quoteAmount'] as int?,
       refusalReason: json['refusalReason'] as String?,
+      interventionReport: interventionReport is Map
+          ? InterventionReport.fromJson(
+              Map<String, Object?>.from(interventionReport),
+            )
+          : null,
     );
   }
   final String id;
@@ -121,6 +129,15 @@ class InterventionRequest {
   /// Zone visible avant acceptation; l'adresse complète reste privée.
   final String address;
   final String date;
+
+  String get displayDate {
+    final scheduledAt = DateTime.tryParse(date);
+    if (scheduledAt == null) return date;
+
+    final local = scheduledAt.toLocal();
+    return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}/${local.year} à ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
+
   final RequestStatus status;
   final DateTime? createdAt;
   final AdminStatusCorrection? adminCorrection;
@@ -129,6 +146,7 @@ class InterventionRequest {
   final String? addressLabel;
   final int? quoteAmount;
   final String? refusalReason;
+  final InterventionReport? interventionReport;
   InterventionRequest copyWith({RequestStatus? status}) => InterventionRequest(
     id: id,
     service: service,
@@ -147,6 +165,7 @@ class InterventionRequest {
     addressLabel: addressLabel,
     quoteAmount: quoteAmount,
     refusalReason: refusalReason,
+    interventionReport: interventionReport,
   );
   Map<String, Object> toJson() => {
     'service': service,
@@ -165,6 +184,8 @@ class InterventionRequest {
     'addressLabel': ?addressLabel,
     'quoteAmount': ?quoteAmount,
     'refusalReason': ?refusalReason,
+    if (interventionReport != null)
+      'interventionReport': interventionReport!.toJson(),
   };
 }
 

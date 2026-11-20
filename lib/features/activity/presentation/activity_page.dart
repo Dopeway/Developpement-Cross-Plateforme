@@ -5,6 +5,7 @@ import '../../../core/models/artisan_catalog.dart';
 import '../../../core/models/intervention_request.dart';
 import '../../../core/state/app_scope.dart';
 import '../../../core/widgets/request_status_widgets.dart';
+import '../../../app/app_routes.dart';
 import 'missing_artisan_profile.dart';
 
 class ActivityPage extends StatefulWidget {
@@ -436,7 +437,9 @@ class _RequestActionCardState extends State<_RequestActionCard> {
               ],
             ),
             const SizedBox(height: 8),
-            Text('${request.clientName}\n${request.address}\n${request.date}'),
+            Text(
+              '${request.clientName}\n${request.address}\n${request.displayDate}',
+            ),
             const SizedBox(height: 8),
             Text(request.description),
             const SizedBox(height: 16),
@@ -492,7 +495,12 @@ class _RequestActionCardState extends State<_RequestActionCard> {
       }
       return;
     }
-    if (status != RequestStatus.completed && status != RequestStatus.refused) {
+    if (status == RequestStatus.completed) {
+      await Navigator.of(context)
+          .pushNamed(AppRoutes.interventionReport, arguments: widget.request);
+      return;
+    }
+    if (status != RequestStatus.refused) {
       await _update(status, _successMessage(status));
       return;
     }
@@ -536,8 +544,9 @@ class _RequestActionCardState extends State<_RequestActionCard> {
           autofocus: true,
           keyboardType: TextInputType.number,
           decoration: const InputDecoration(
-            labelText: 'Montant estimé (DT)',
-            helperText: 'Le client devra accepter ce devis.',
+            labelText: 'Montant total TTC (DT)',
+            helperText:
+                'Le client devra accepter ce montant avant l’intervention.',
           ),
         ),
         actions: [

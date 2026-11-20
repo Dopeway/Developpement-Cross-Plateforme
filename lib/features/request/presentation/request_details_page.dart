@@ -44,15 +44,11 @@ class RequestDetailsPage extends StatelessWidget {
                     label: 'Client',
                     value: request.clientName,
                   ),
-                  _DetailRow(
-                    icon: Icons.location_on_outlined,
-                    label: 'Adresse',
-                    value: request.address,
-                  ),
+                  _PrivateAddressRow(request: request),
                   _DetailRow(
                     icon: Icons.schedule_outlined,
                     label: 'Créneau',
-                    value: request.date,
+                    value: request.displayDate,
                   ),
                 ],
               ),
@@ -77,6 +73,38 @@ class RequestDetailsPage extends StatelessWidget {
                   ],
                 ),
               ],
+              if (request.status == RequestStatus.inProgress &&
+                  user?.id == request.artisanId) ...[
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).pushNamed(AppRoutes.interventionReport, arguments: request),
+                  icon: const Icon(Icons.assignment_outlined),
+                  label: const Text('Renseigner le rapport'),
+                ),
+              ],
+              if (request.status == RequestStatus.completed) ...[
+                const SizedBox(height: 24),
+                FilledButton.tonalIcon(
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).pushNamed(AppRoutes.interventionReport, arguments: request),
+                  icon: const Icon(Icons.article_outlined),
+                  label: const Text('Consulter le rapport d’intervention'),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context)
+                      .pushNamed(AppRoutes.billingDocument, arguments: request),
+                  icon: const Icon(Icons.picture_as_pdf_outlined),
+                  label: Text(
+                    user?.id == request.artisanId
+                        ? 'Préparer ou consulter le projet de facture'
+                        : 'Consulter le projet de facture',
+                  ),
+                ),
+              ],
               if (canChat) ...[
                 const SizedBox(height: 24),
                 FilledButton.icon(
@@ -98,6 +126,48 @@ class RequestDetailsPage extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PrivateAddressRow extends StatefulWidget {
+  const _PrivateAddressRow({required this.request});
+
+  final InterventionRequest request;
+
+  @override
+  State<_PrivateAddressRow> createState() => _PrivateAddressRowState();
+}
+
+class _PrivateAddressRowState extends State<_PrivateAddressRow> {
+  Future<String>? _fullAddress;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final controller = AppScope.maybeOf(context);
+    final user = controller?.currentUser;
+    final canRead =
+        user?.id == widget.request.clientId ||
+        (user?.id == widget.request.artisanId &&
+            const [
+              RequestStatus.accepted,
+              RequestStatus.quoteAccepted,
+              RequestStatus.inProgress,
+              RequestStatus.completed,
+            ].contains(widget.request.status));
+    if (_fullAddress == null && controller != null && canRead) {
+      _fullAddress = controller.getRequestFullAddress(widget.request);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<String>(
+    future: _fullAddress,
+    builder: (context, snapshot) => _DetailRow(
+      icon: Icons.location_on_outlined,
+      label: 'Adresse',
+      value: snapshot.data ?? widget.request.address,
+    ),
+  );
 }
 
 class _DetailSection extends StatelessWidget {

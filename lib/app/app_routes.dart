@@ -8,6 +8,8 @@ import '../features/auth/presentation/login_page.dart';
 import '../features/chat/presentation/chat_page.dart';
 import '../features/request/presentation/request_form_page.dart';
 import '../features/request/presentation/request_details_page.dart';
+import '../features/request/presentation/intervention_report_page.dart';
+import '../features/request/presentation/billing_document_page.dart';
 import '../features/shell/presentation/app_shell.dart';
 
 abstract final class AppRoutes {
@@ -17,6 +19,8 @@ abstract final class AppRoutes {
   static const requestForm = '/demande';
   static const requestDetails = '/demande/details';
   static const chat = '/demande/discussion';
+  static const interventionReport = '/demande/rapport';
+  static const billingDocument = '/demande/facturation';
   static const admin = '/administration';
   static Route<void> onGenerateRoute(
     RouteSettings settings,
@@ -40,6 +44,18 @@ abstract final class AppRoutes {
       MaterialPageRoute<void>(
         builder: (_) =>
             ChatPage(request: settings.arguments! as InterventionRequest),
+      ),
+    interventionReport when settings.arguments is InterventionRequest =>
+      MaterialPageRoute<void>(
+        builder: (_) => InterventionReportPage(
+          request: settings.arguments! as InterventionRequest,
+        ),
+      ),
+    billingDocument when settings.arguments is InterventionRequest =>
+      MaterialPageRoute<void>(
+        builder: (_) => BillingDocumentPage(
+          request: settings.arguments! as InterventionRequest,
+        ),
       ),
     admin => MaterialPageRoute<void>(builder: (_) => const AdminPage()),
     _ => MaterialPageRoute<void>(
