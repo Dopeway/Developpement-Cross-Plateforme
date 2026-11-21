@@ -149,10 +149,15 @@ class _RequestsPageState extends State<RequestsPage> {
                 request.status == RequestStatus.completed)
               Align(
                 alignment: Alignment.centerRight,
-                child: FilledButton.tonalIcon(
-                  onPressed: () => _review(context, request),
-                  icon: const Icon(Icons.star_outline),
-                  label: const Text('Donner un avis'),
+                child: StreamBuilder<bool>(
+                  stream: AppScope.of(context).hasReviewForRequest(request.id),
+                  builder: (context, snapshot) => snapshot.data == false
+                      ? FilledButton.tonalIcon(
+                          onPressed: () => _review(context, request),
+                          icon: const Icon(Icons.star_outline),
+                          label: const Text('Donner un avis'),
+                        )
+                      : const SizedBox.shrink(),
                 ),
               ),
             if (role == UserRole.client &&

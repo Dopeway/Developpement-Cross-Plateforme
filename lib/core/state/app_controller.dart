@@ -87,6 +87,8 @@ class AppController extends ChangeNotifier {
       : _userRepository.watchAddresses(_currentUser!.id);
   Stream<List<Review>> reviewsForArtisan(String id) =>
       _reviewRepository.watchForArtisan(id);
+  Stream<bool> hasReviewForRequest(String id) =>
+      _reviewRepository.watchExistsForRequest(id);
   Stream<List<AppNotification>> get notifications => _currentUser == null
       ? Stream<List<AppNotification>>.value(const [])
       : _notificationRepository.watchForUser(_currentUser!.id);

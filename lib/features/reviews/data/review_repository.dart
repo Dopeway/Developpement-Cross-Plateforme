@@ -28,6 +28,9 @@ class ReviewRepository {
   Future<bool> existsForRequest(String requestId) async =>
       (await _reviews.doc(requestId).get()).exists;
 
+  Stream<bool> watchExistsForRequest(String requestId) =>
+      _reviews.doc(requestId).snapshots().map((snapshot) => snapshot.exists);
+
   Future<void> create({
     required InterventionRequest request,
     required int rating,
