@@ -27,5 +27,10 @@ class AuthRepository {
     return credential.user!;
   }
 
+  Future<void> sendPasswordResetEmail(String email) async {
+    await _firebaseAuth.setLanguageCode('fr');
+    await _firebaseAuth.sendPasswordResetEmail(email: email.trim());
+  }
+
   Future<void> signOut() => _firebaseAuth.signOut();
 }

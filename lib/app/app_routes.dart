@@ -5,6 +5,7 @@ import '../core/models/intervention_request.dart';
 import '../features/admin/presentation/admin_page.dart';
 import '../features/artisans/presentation/artisan_detail_page.dart';
 import '../features/auth/presentation/login_page.dart';
+import '../features/auth/presentation/forgot_password_page.dart';
 import '../features/chat/presentation/chat_page.dart';
 import '../features/request/presentation/request_form_page.dart';
 import '../features/request/presentation/request_details_page.dart';
@@ -14,6 +15,7 @@ import '../features/shell/presentation/app_shell.dart';
 
 abstract final class AppRoutes {
   static const login = '/';
+  static const forgotPassword = '/mot-de-passe-oublie';
   static const home = '/accueil';
   static const artisanDetail = '/artisan';
   static const requestForm = '/demande';
@@ -27,6 +29,9 @@ abstract final class AppRoutes {
   ) => switch (settings.name) {
     home => MaterialPageRoute<void>(builder: (_) => const AppShell()),
     login => MaterialPageRoute<void>(builder: (_) => const LoginPage()),
+    forgotPassword => MaterialPageRoute<void>(
+      builder: (_) => const ForgotPasswordPage(),
+    ),
     artisanDetail when settings.arguments is Artisan => MaterialPageRoute<void>(
       builder: (_) =>
           ArtisanDetailPage(artisan: settings.arguments! as Artisan),

@@ -114,6 +114,9 @@ class AppController extends ChangeNotifier {
   Future<void> signIn({required String email, required String password}) =>
       _authRepository.signIn(email: email, password: password);
 
+  Future<void> sendPasswordResetEmail(String email) =>
+      _authRepository.sendPasswordResetEmail(email);
+
   Future<void> register({
     required String name,
     required String email,

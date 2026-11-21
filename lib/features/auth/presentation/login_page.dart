@@ -5,6 +5,7 @@ import '../../../core/models/app_user.dart';
 import '../../../core/models/artisan_catalog.dart';
 import '../../../core/state/app_scope.dart';
 import '../../../core/widgets/responsive_form_layout.dart';
+import '../../../app/app_routes.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -171,6 +172,18 @@ class _LoginPageState extends State<LoginPage> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Text('Se connecter'),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _isSubmitting
+                      ? null
+                      : () =>
+                            Navigator.of(context)
+                                .pushNamed(AppRoutes.forgotPassword),
+                  child: const Text('Mot de passe oublié ?'),
+                ),
               ),
               const SizedBox(height: 16),
               OutlinedButton(

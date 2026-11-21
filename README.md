@@ -63,6 +63,23 @@ L’inscription permet de choisir un compte `client` ou `artisan` :
 
 Les règles Firestore interdisent à un artisan de se déclarer vérifié ou de modifier les données de validation.
 
+### Mot de passe oublié
+
+Depuis la connexion, l’utilisateur peut demander un e-mail de réinitialisation. Firebase Authentication envoie le lien et héberge la page où définir le nouveau mot de passe ; aucun serveur SMTP ni stockage de token dans Firestore n’est nécessaire. Vérifiez dans la console Firebase que le fournisseur **E-mail/Mot de passe** est activé, puis personnalisez si besoin le modèle **Authentication > Templates > Password reset**. Activez la protection contre l’énumération des adresses dans les paramètres d’Authentication. L’application affiche la même confirmation lorsque l’adresse ne correspond à aucun compte. Sur le plan gratuit Spark, la limite publiée est de 150 e-mails de réinitialisation par jour.
+
+L’application demande un e-mail en français. Pour remplacer le nom technique du projet dans le message, configurez le modèle **Password reset** dans la console Firebase avec le nom d’expéditeur `QuickFix Tunisia`, l’objet `Réinitialisez votre mot de passe QuickFix Tunisia` et le corps HTML suivant. Conservez impérativement `%LINK%` : Firebase le remplace par le lien de réinitialisation personnel.
+
+```html
+<p>Bonjour,</p>
+<p>Une demande de réinitialisation du mot de passe a été effectuée pour votre compte QuickFix Tunisia.</p>
+<p>Pour choisir un nouveau mot de passe, cliquez sur le lien ci-dessous :</p>
+<p><a href="%LINK%">Réinitialiser mon mot de passe</a></p>
+<p>Si vous n’êtes pas à l’origine de cette demande, ignorez cet e-mail. Votre mot de passe reste inchangé.</p>
+<p>L’équipe QuickFix Tunisia</p>
+```
+
+Le domaine `firebaseapp.com` restera visible dans l’adresse d’envoi et le lien tant qu’un domaine personnalisé n’aura pas été configuré et vérifié dans Firebase.
+
 ### Catalogue des profils artisans
 
 Le métier et la ville d’intervention sont des valeurs contrôlées. L’application affiche leurs libellés français, mais Firestore stocke uniquement des identifiants stables : par exemple `plumber` et `tunis`. Les villes actuellement proposées sont Tunis, Ariana, Ben Arous, Manouba, Sfax, Sousse et Bizerte. La ville est obligatoire lors de la création d’un compte artisan et les clients peuvent filtrer les artisans par ville.
